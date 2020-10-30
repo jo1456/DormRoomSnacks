@@ -9,7 +9,9 @@ import (
         "net"
         "encoding/json"
         "flag"
-        "errors"
+        // "errors"
+        "database/sql"
+        _ "github.com/go-sql-driver/mysql"
 )
 
 var (
@@ -19,9 +21,22 @@ var (
 )
 
 func main() {
+
+        db, err := sql.Open("mysql", "root:<PUT YOUR PASSWORD HERE>@tcp(127.0.0.1:3306)/DormRoomSnacks")
+        if err != nil {
+            panic(err.Error())
+        }
+
+        defer db.Close()
+
         // creates a variable with the passed flag. default value of 8080
         listenPort := flag.String("listen", "8090", "port to listen on")
         flag.Parse()
+
+        _, err = db.Query("INSERT INTO Foods VALUES ( 'New food', 'wicked good', 10.01, TRUE )")
+        if err != nil {
+          panic(err.Error())
+        }
 
         // listen on passed port
         listener, err := net.Listen("tcp", ":" + *listenPort)
@@ -66,6 +81,14 @@ func main() {
           }
           encoder.Encode(status)
         }
+}
+
+type Status struct {
+  Success bool
+}
+
+type Request struct {
+  FunctionName string
 }
 
 type Location struct {
@@ -202,15 +225,15 @@ type DeleteItemResponse struct {
  Status string
 }
 
-func ListLocations ()  (ListLocationsResponse) {}
-func GetMenu (GetMenuRequest)  (GetMenuResponse) {}
-func ViewItem (ViewItemRequest)  (ViewItemResponse) {}
-func SubmitOrder (SubmitOrderRequest)  (SubmitOrderRequest) {}
-func CheckOrderStatus (CheckOrderStatusRequest)  (CheckOrderStatusResponse) {}
+func ListLocations ()  () {}
+func GetMenu (GetMenuRequest)  () {}
+func ViewItem (ViewItemRequest)  () {}
+func SubmitOrder (SubmitOrderRequest)  () {}
+func CheckOrderStatus (CheckOrderStatusRequest)  () {}
 
-func GetOrders (GetOrdersRequest)  (GetOrdersResponse) {}
-func SelectOrder (SelectOrderRequest)  (SelectOrderResponse) {}
-func CompleteOrder (CompelteOrderRequest)  (CompleteOrderResponse) {}
-func UpdateItem (UpdateItemRequest)  (UpdateItemResponse) {}
-func CreateItem (CreateItemRequest)  (CreateItemResponse) {}
-func DeleteItem (DeleteItemRequest)  (DeleteItemResponse) {}
+func GetOrders (GetOrdersRequest)  () {}
+func SelectOrder (SelectOrderRequest)  () {}
+func CompleteOrder (CompelteOrderRequest)  () {}
+func UpdateItem (UpdateItemRequest)  () {}
+func CreateItem (CreateItemRequest)  () {}
+func DeleteItem (DeleteItemRequest)  () {}
