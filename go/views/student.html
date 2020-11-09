@@ -35,7 +35,7 @@
         {{range .MenuItems}}
             <form class="form-inline" action="/add-item-cart" method="POST">
                 <label class="my-1 mr-2" for="inlineFormCustomSelectPref">{{.ItemName}}</label>
-                <label class="sr-only" for="inlineFormInputGroupUsername2">Username</label>
+                <label class="sr-only" for="inlineFormInputGroupUsername2">Price</label>
                 <div class="input-group mb-2 mr-sm-2">
                     <div class="input-group-prepend">
                         <div class="input-group-text">$</div>
@@ -48,13 +48,38 @@
                     <option value="2">2</option>
                     <option value="3">3</option>
                 </select>
-                <button type="submit" class="btn btn-primary my-1">Submit</button>
+                <button type="submit" class="btn btn-primary my-1">Add To Cart</button>
             </form>
         {{end}}
     </div>
     <!-- end of menu -->
 
     <!-- start of cart/checkout -->
+    <div>
+        <h1 class="display-1">Menu</h1>
+        {{range .CartItems}}
+            <form class="form-inline" action="/add-item-cart" method="POST">
+                <label class="my-1 mr-2" for="inlineFormCustomSelectPref">{{.ItemName}}</label>
+                <label class="sr-only" for="inlineFormInputGroupUsername2">Price</label>
+                <div class="input-group mb-2 mr-sm-2">
+                    <div class="input-group-prepend">
+                        <div class="input-group-text">$</div>
+                    </div>
+                    <input type="text" class="form-control" placeholder="{{.Price}}" readonly>
+                </div>
+                <select class="custom-select my-1 mr-sm-2" id="inlineFormCustomSelectPref">
+                    <option selected>Quantity...</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                </select>
+                <button type="submit" class="btn btn-primary my-1">Update</button>
+            </form>
+        {{end}}
+        <form class="form-inline" action="/add-item-cart" method="POST">
+
+        </form>
+    </div>
     <!-- end of start/checkout -->
 </body>
 

@@ -1,10 +1,4 @@
-#create schema DormRoomSnacks;
-
-use DormRoomSnacks;
-
-#create schema DormRoomSnacks;
-
-use DormRoomSnacks;
+use heroku_5873df879639de6;
 
 create table Persons(
 	id int NOT NULL AUTO_INCREMENT,
