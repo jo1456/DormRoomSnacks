@@ -14,6 +14,7 @@ type Location struct {
 	MenuID  int
 	Address string
 	Hours   string
+	Phone   int
 }
 
 type Menu struct {
@@ -53,7 +54,7 @@ type Order struct {
 }
 
 type ListLocationsResponse struct {
-	locations []Location
+	Locations []Location
 }
 
 type GetMenuRequest struct {
