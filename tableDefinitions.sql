@@ -1,48 +1,63 @@
 use heroku_5873df879639de6;
 
 create table Persons(
+	id int NOT NULL AUTO_INCREMENT,
 	netID varchar(6),
     firstName varchar(10) not null,
     lastName varchar(10) not null,
     email varchar(50),
     phone int,
-    student bool, # 1 if student, 0 if staff 
-    primary key(netID)
+    student bool, # 1 if student, 0 if staff
+	dollarBalance float,
+	mealSwipeBalance int,
+    primary key(id)
 );
 
 create table DiningHalls(
-	id varchar(10),
+	id int NOT NULL AUTO_INCREMENT,
 	name varchar(255) not null,
-    address varchar(255) not null,
-    phone int,
-    #operatingHours??
+  address varchar(255) not null,
+  phone varchar(255),
+	menuID int,
+  hours varchar(255),
     primary key(id)
 );
 
 create table Foods(
+	id int NOT NULL AUTO_INCREMENT,
+	menuID int,
     name varchar(255),
     description varchar(255) not null default '',
-    price decimal(6,2) not null,
+    price int not null,
     availability bool not null,
-    #nutritionFacts
-    primary key(name)
+    nutritionFacts varchar(255),
+    primary key(id)
 );
 
 create table Menu(
-	diningHallID varchar(10),
-    foodID varchar(255),
-    servingTime char(1), # b-breakfast, l-lunch, d-dinner
-    primary key (diningHallID),
-    foreign key (diningHallID) references DiningHalls(id),
-    foreign key (foodID) references Foods(name)
+		id int NOT NULL AUTO_INCREMENT,
+    #servingTime char(1), # b-breakfast, l-lunch, d-dinner
+		name varchar(255),
+        DiningHallId int,
+    primary key (id),
+    foreign key (id) references DiningHalls(id)
 );
 
 create table Orders(
-	personID varchar(6),
-    diningHallID varchar(10),
-    foodID varchar(255),
-    primary key(personID, diningHallID, foodID),
-    foreign key (personID) references Persons(netID),
-    foreign key (diningHallID) references DiningHalls(id),
-    foreign key (foodID) references Foods(name)
+	id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+	personID int,
+	diningHallID int,
+	status varchar(255),
+	submitTime varchar(255),
+	lastStatusChange varchar(255),
+    foreign key (personID) references Persons(id),
+    foreign key (diningHallID) references DiningHalls(id)
+);
+
+create table OrderItem(
+	id int NOT NULL AUTO_INCREMENT,
+	foodID int,
+	orderID int,
+	Customization varchar(255),
+  primary key(id)
 );
