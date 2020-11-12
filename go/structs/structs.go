@@ -44,13 +44,20 @@ type ItemOrder struct {
 	ID            int
 	ItemID        int
 	Customization string
-	Notes         string
 }
 
 type Order struct {
+	ID 		   int
 	UserID     int
 	LocationID int
-	Items      []ItemOrder
+	Item       ItemOrder
+	Status     string
+	SubmitTime string
+}
+
+type OrderAndItems struct {
+	Order Order
+	Items []ItemOrder
 }
 
 type ListLocationsResponse struct {
@@ -73,11 +80,11 @@ type ViewItemResponse struct {
 	Item FoodItem
 }
 
-type SubmitOrderRequest struct {
+type CreateOrderRequest struct {
 	OrderRequest Order
 }
 
-type SubmitOrderResponse struct {
+type CreateOrderResponse struct {
 	ID      int
 	Success bool
 	Status  string
@@ -141,4 +148,17 @@ type DeleteItemRequest struct {
 
 type DeleteItemResponse struct {
 	Status string
+}
+
+type UpdateOrderRequest struct {
+	ID int
+}
+
+type AddItemToOrderRequest struct {
+	OrderID int
+	Item OrderItem
+}
+
+type AddItemToOrderResponse struct {
+
 }
