@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
+	// "log"
 	"net"
 	"time"
 
@@ -17,7 +17,7 @@ import (
 	"database/sql"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/joho/godotenv"
+	// "github.com/joho/godotenv"
 )
 
 var (
@@ -27,12 +27,12 @@ var (
 	DB         *sql.DB
 )
 
-func init() {
-	// loads values from .env into the system
-	if err := godotenv.Load(); err != nil {
-		log.Print("No .env file found")
-	}
-}
+// func init() {
+// 	// loads values from .env into the system
+// 	if err := godotenv.Load(); err != nil {
+// 		log.Print("No .env file found")
+// 	}
+// }
 
 func main() {
 
@@ -54,7 +54,7 @@ func main() {
 	// defer db.Close()
 
 	//local
-	db, err := sql.Open("mysql", "root:Rusty123@tcp(127.0.0.1:3306)/DormRoomSnacks") 
+	db, err := sql.Open("mysql", "b2766d1c91f7c7:0c0f617f@tcp(us-cdbr-east-02.cleardb.com)/heroku_5873df879639de6") 
 
 	//shared
 	// db, err := sql.Open("mysql", "b2766d1c91f7c7:0c0f617f@tcp(us-cdbr-east-02.cleardb.com:3306)/DormRoomSnacks")
@@ -96,14 +96,13 @@ func main() {
 	// infinite loop to accept and response to requests
 	for {
 
-		fmt.Println("in loop")
 		// status of operation. In case of failure fe can redirect to homepage
 		// status := Status{Success: true}
 
 		var req structs.Request
 		decoder.Decode(&req)
 
-		fmt.Println(req.FunctionName)
+		// fmt.Println(req.FunctionName)
 
 		switch req.FunctionName {
 		case "ListLocations":
@@ -119,7 +118,7 @@ func main() {
 
 			ViewItem(viewItemReq)
 		case "SubmitOrder":
-			var order structs.Order
+			var order structs.UpdateOrderRequest
 			decoder.Decode(&order)
 
 			SubmitOrder(order)
@@ -130,7 +129,11 @@ func main() {
 		case "UpdateItem":
 		case "CreateItem":
 		case "DeleteItem":
+		case "SendMealSwipes":
+			var req structs.SendMealSwipesRequest
+			decoder.Decode(&req)
 
+			SendMealSwipes(req)
 		}
 	}
 }
@@ -155,9 +158,9 @@ func ListLocations() {
 		resp.Locations = append(resp.Locations, structs.Location{ID: location.ID, Name: location.Name, Address: location.Address, Phone: location.Phone, MenuID: location.MenuID, Hours: location.Hours})
 	}
 
-	fmt.Println(resp)
 
 	encoder.Encode(&resp)
+	fmt.Println(resp)
 
 }
 
@@ -247,6 +250,8 @@ func ViewItem(req structs.ViewItemRequest) {
 // 3. Submit order which updates to status to "submitted"
 
 
+// cart -> submitted -> 
+
 func CreateOrder(req structs.Order) {
 	_, err := DB.Query("insert into Orders (personID, diningHallID, status, submitTime, lastStatusChange) values(?,?,?,?,?);",
 		req.UserID, req.LocationID, "In Queue", 0, time.Now())
@@ -270,7 +275,7 @@ func CreateOrder(req structs.Order) {
 		}
 	}
 
-	_, err := DB.Query("insert into OrderItem (foodID, orderID, Customization) values(?,?,?);", req.Item.ItemID, id, req.Item.Customization)
+	_, err = DB.Query("insert into OrderItem (foodID, orderID, Customization) values(?,?,?);", req.Item.ItemID, id, req.Item.Customization)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -292,7 +297,7 @@ func SubmitOrder(req structs.UpdateOrderRequest) {
 	encoder.Encode("submitted")
 }
 
-func AddItemToOrder(req AddItemToOrderRequest) {
+func AddItemToOrder(req structs.AddItemToOrderRequest) {
 	_, err := DB.Query("insert into OrderItem (foodID, orderID, Customization) values(?,?,?);", req.Item.ItemID, req.OrderID, req.Item.Customization)
 	if err != nil {
 		fmt.Println(err)
@@ -324,8 +329,8 @@ func CheckOrderStatus(req structs.CheckOrderStatusRequest) {
 	encoder.Encode(&order)
 }
 
-func GetOrders(structs.GetOrdersRequest)         {
-	rows, err := DB.Query("select * from Orders where diningHallID = ?;", req.LocationID)
+func GetOrders(req structs.GetOrdersRequest)         {
+	rows, err := DB.Query("select * from Orders where diningHallID = ? and status = \"submitted\";", req.LocationID)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -347,15 +352,15 @@ func GetOrders(structs.GetOrdersRequest)         {
 	encoder.Encode(orders)
 }
 
-func SelectOrder(structs.SelectOrderRequest)     {
+func SelectOrder(req structs.SelectOrderRequest)     {
 	_, err := DB.Query("update Orders set status = \"selected\", lastStatusChange = ? where id = ?;",
-		time.Now(), req.ID)
+		time.Now(), req.OrderID)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	var orderAndItems OrderAndItems
+	var orderAndItems structs.OrderAndItems
 
 	rows, err := DB.Query("select * from Orders where ID = ?;", req.OrderID)
 	if err != nil {
@@ -378,7 +383,7 @@ func SelectOrder(structs.SelectOrderRequest)     {
 	orderAndItems.Order = order
 
 
-	rows, err := DB.Query("select * from OrderItem where orderID = ?;", req.OrderID)
+	rows, err = DB.Query("select * from OrderItem where orderID = ?;", req.OrderID)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -389,7 +394,7 @@ func SelectOrder(structs.SelectOrderRequest)     {
 	for rows.Next() {
 		var item structs.ItemOrder
 		var lastStatusChange string
-		err := rows.Scan(&item.ID, &item.ItemID, &num, &item.Customization)
+		err := rows.Scan(&item.ID, &item.ItemID, &lastStatusChange, &item.Customization)
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -405,7 +410,7 @@ func SelectOrder(structs.SelectOrderRequest)     {
 
 func CompleteOrder(req structs.CompelteOrderRequest) {
 	_, err := DB.Query("update Orders set status = \"complete\", submitTime = ? where id = ?;",
-		time.Now(), req.ID)
+		time.Now(), req.OrderID)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -440,7 +445,7 @@ func UpdateItem(req structs.UpdateItemRequest)       {
 
 func DeleteItem(req structs.DeleteItemRequest)       {
 	_, err := DB.Query("delete from Foods where id = ? AND menuID = ?;",
-		req.Items, req.MenuID)
+		req.ItemID, req.MenuID)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -448,3 +453,64 @@ func DeleteItem(req structs.DeleteItemRequest)       {
 	
 	encoder.Encode("deleted")
 }
+
+func SendMealSwipes(req structs.SendMealSwipesRequest){
+	rows, err := DB.Query("select mealSwipeBalance from persons where ID = ?;", req.FromID)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer rows.Close()
+
+	var fromMealSwipeBalance int
+	for rows.Next() {
+		err := rows.Scan(&fromMealSwipeBalance)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+	}
+	
+	var res structs.SendMealSwipesResponse
+	if(fromMealSwipeBalance >= req.NumSwipes && req.NumSwipes >= 0) {
+		_, err := DB.Query("update persons set mealSwipeBalance = mealSwipeBalance + ? where ID = ?;", req.NumSwipes ,req.ToID)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		defer rows.Close()
+
+		_, err = DB.Query("update persons set mealSwipeBalance = mealSwipeBalance - ? where ID = ?;", req.NumSwipes ,req.FromID)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		defer rows.Close()
+
+		rows, err = DB.Query("select mealSwipeBalance from persons where ID = ?;", req.FromID)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			err := rows.Scan(&res.Balance)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+		}
+
+		res.Success = true
+	} else {
+		res.Success = false
+	}
+
+	encoder.Encode(&res)
+}
+
+// check number of meal swips and send
+// get personal info. make net id uniqu
+
+// complete order instead of validation

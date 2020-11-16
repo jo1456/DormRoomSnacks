@@ -156,9 +156,20 @@ type UpdateOrderRequest struct {
 
 type AddItemToOrderRequest struct {
 	OrderID int
-	Item OrderItem
+	Item ItemOrder
 }
 
 type AddItemToOrderResponse struct {
 
+}
+
+type SendMealSwipesRequest struct {
+	FromID int
+	ToID int
+	NumSwipes int
+}
+
+type SendMealSwipesResponse struct {
+	Success bool
+	Balance int 
 }
