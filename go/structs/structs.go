@@ -82,6 +82,7 @@ type ViewItemResponse struct {
 
 type CreateOrderRequest struct {
 	OrderRequest Order
+	PayWithMealSwipe bool
 }
 
 type CreateOrderResponse struct {
@@ -157,6 +158,7 @@ type UpdateOrderRequest struct {
 type AddItemToOrderRequest struct {
 	OrderID int
 	Item ItemOrder
+	PayWithMealSwipe bool
 }
 
 type AddItemToOrderResponse struct {
@@ -172,4 +174,13 @@ type SendMealSwipesRequest struct {
 type SendMealSwipesResponse struct {
 	Success bool
 	Balance int 
+}
+
+type GetPaymentBalancesRequest struct {
+	UserID int
+}
+
+type GetPaymentBalancesResponse struct {
+	MealSwipeBalance int
+	CentsBalance int
 }

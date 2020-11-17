@@ -8,7 +8,7 @@ create table Persons(
     email varchar(50),
     phone int,
     student bool, # 1 if student, 0 if staff
-	dollarBalance float,
+	dollarBalance int,
 	mealSwipeBalance int,
     primary key(id)
 );
@@ -50,6 +50,8 @@ create table Orders(
 	status varchar(255),
 	submitTime varchar(255),
 	lastStatusChange varchar(255),
+    swipeCost int,
+    centCost int,
     foreign key (personID) references Persons(id),
     foreign key (diningHallID) references DiningHalls(id)
 );
@@ -59,5 +61,6 @@ create table OrderItem(
 	foodID int,
 	orderID int,
 	Customization varchar(255),
-  primary key(id)
+    payWithSwipe bool,
+    primary key(id)
 );

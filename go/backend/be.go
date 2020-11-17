@@ -1,7 +1,3 @@
-//Jeffrey Oberg jo1456
-//Project part 2 CRUD APP with front and back end servers
-// back end
-
 package main
 
 import (
@@ -46,20 +42,7 @@ func main() {
 
 	// databaseURI := fmt.Sprintf("%s:%s@%s/%s", DB_USERNAME, DB_PASSWORD, DB_HOSTURL, DB_NAME)
 
-	// db, err := sql.Open("postgres", databaseURI)
-	// if err != nil {
-	// 	panic(err.Error())
-	// }
-
-	// defer db.Close()
-
-	//local
 	db, err := sql.Open("mysql", "b2766d1c91f7c7:0c0f617f@tcp(us-cdbr-east-02.cleardb.com)/heroku_5873df879639de6") 
-
-	//shared
-	// db, err := sql.Open("mysql", "b2766d1c91f7c7:0c0f617f@tcp(us-cdbr-east-02.cleardb.com:3306)/DormRoomSnacks")
-
-	// db, err := sql.Open("mysql", "root:<PUT YOUR PASSWORD HERE>@tcp(127.0.0.1:3306)/DormRoomSnacks")
 	if err != nil {
 		panic(err.Error())
 	}
@@ -117,27 +100,71 @@ func main() {
 			decoder.Decode(&viewItemReq)
 
 			ViewItem(viewItemReq)
+		case "CreateOrder":
+			var req structs.CreateOrderRequest
+			decoder.Decode(&req)
+
+			CreateOrder(req)
 		case "SubmitOrder":
 			var order structs.UpdateOrderRequest
 			decoder.Decode(&order)
 
 			SubmitOrder(order)
+		case "AddItemToOrder":
+			var req structs.AddItemToOrderRequest
+			decoder.Decode(&req)
+
+			AddItemToOrder(req)
 		case "CheckOrderStatus":
+			var req structs.CheckOrderStatusRequest
+			decoder.Decode(&req)
+
+			CheckOrderStatus(req)
 		case "GetOrders":
+			var req structs.GetOrdersRequest
+			decoder.Decode(&req)
+
+			GetOrders(req)
 		case "SelectOrder":
+			var req structs.SelectOrderRequest
+			decoder.Decode(&req)
+
+			SelectOrder(req)
 		case "CompleteOrder":
+			var req structs.CompelteOrderRequest
+			decoder.Decode(&req)
+
+			CompleteOrder(req)
 		case "UpdateItem":
+			var req structs.UpdateItemRequest
+			decoder.Decode(&req)
+
+			UpdateItem(req)
 		case "CreateItem":
+			var req structs.CreateItemRequest
+			decoder.Decode(&req)
+
+			CreateItem(req)
 		case "DeleteItem":
+			var req structs.DeleteItemRequest
+			decoder.Decode(&req)
+
+			DeleteItem(req)
 		case "SendMealSwipes":
 			var req structs.SendMealSwipesRequest
 			decoder.Decode(&req)
 
 			SendMealSwipes(req)
+		case "GetPaymentBalances": // dollar amounts are in cents to avoid floating point
+			var req structs.GetPaymentBalancesRequest
+			decoder.Decode(&req)
+
+			GetPaymentBalances(req)
 		}
 	}
 }
 
+// x
 func ListLocations() {
 	rows, err := DB.Query("select * from DiningHalls;")
 	if err != nil {
@@ -164,13 +191,8 @@ func ListLocations() {
 
 }
 
+// x
 func GetMenu(req structs.GetMenuRequest) {
-	//type Menu struct {
-	//   ID int
-	//   Name string
-	//   LocationID int
-	//   Items []FoodItem
-	// }
 
 	rows, err := DB.Query("select * from Menu where id = ?;", req.MenuID)
 	if err != nil {
@@ -196,16 +218,6 @@ func GetMenu(req structs.GetMenuRequest) {
 	}
 	defer rows.Close()
 
-	// type FoodItem struct {
-	//   ID int
-	//   Name string
-	//   Description string
-	//   Cost int
-	//   IsAvailable bool
-	//   Ingredients string
-	//   NutritionFacts string
-	// }
-
 	for rows.Next() {
 		var item structs.FoodItem
 		var num int
@@ -222,6 +234,7 @@ func GetMenu(req structs.GetMenuRequest) {
 	encoder.Encode(&menu)
 }
 
+// x
 func ViewItem(req structs.ViewItemRequest) {
 	rows, err := DB.Query("select * from Foods where ID = ?;", req.ItemID)
 	if err != nil {
@@ -252,9 +265,9 @@ func ViewItem(req structs.ViewItemRequest) {
 
 // cart -> submitted -> 
 
-func CreateOrder(req structs.Order) {
+func CreateOrder(req structs.CreateOrderRequest) {
 	_, err := DB.Query("insert into Orders (personID, diningHallID, status, submitTime, lastStatusChange) values(?,?,?,?,?);",
-		req.UserID, req.LocationID, "In Queue", 0, time.Now())
+		req.OrderRequest.UserID, req.OrderRequest.LocationID, "In Queue", 0, time.Now())
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -275,38 +288,131 @@ func CreateOrder(req structs.Order) {
 		}
 	}
 
-	_, err = DB.Query("insert into OrderItem (foodID, orderID, Customization) values(?,?,?);", req.Item.ItemID, id, req.Item.Customization)
+	err = AddItemToOrder(structs.AddItemToOrderRequest{OrderID: id, Item: req.OrderRequest.Item, PayWithMealSwipe: req.PayWithMealSwipe})
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	fmt.Println("order id:")
-	fmt.Println(id)
 	encoder.Encode(id)
 }
 
+// x
 func SubmitOrder(req structs.UpdateOrderRequest) {
-	_, err := DB.Query("update Orders set status = \"submitted\", submitTime = ? where id = ?;",
-		time.Now(), req.ID)
+
+	rows, err := DB.Query("select swipeCost, centCost, personID from Orders where ID = ?;", req.ID)
 	if err != nil {
 		fmt.Println(err)
-		return
+		encoder.Encode("failure")			
+		return 
 	}
-	
-	encoder.Encode("submitted")
+	defer rows.Close()
+
+	var swipeCost int
+	var centCost int
+	var userID int
+	for rows.Next() {
+		err := rows.Scan(&swipeCost, &centCost, &userID)
+		if err != nil {
+			fmt.Println(err)
+			encoder.Encode("failure")			
+			return 
+		}
+	}
+
+	rows, err = DB.Query("select dollarBalance, mealSwipeBalance from Persons where ID = ?;", userID)
+	if err != nil {
+		fmt.Println(err)
+		encoder.Encode("failure")			
+		return 
+	}
+	defer rows.Close()
+
+	var dollarBalance int
+	var mealSwipeBalance int
+	for rows.Next() {
+		err := rows.Scan(&swipeCost, &centCost)
+		if err != nil {
+			fmt.Println(err)
+			encoder.Encode("failure")			
+			return 
+		}
+	}
+
+	if(dollarBalance > centCost && mealSwipeBalance > swipeCost) {
+
+		_, err := DB.Query("update Personds set dollarBalance = dollarBalance - ?, mealSwipeBalance = mealSwipeBalance - ? where id = ?;",
+		centCost, swipeCost, userID)
+		if err != nil {
+			fmt.Println(err)
+			encoder.Encode("failure")			
+			return
+		}
+
+		_, err = DB.Query("update Orders set status = \"submitted\", submitTime = ? where id = ?;",
+		time.Now(), req.ID)
+		if err != nil {
+			fmt.Println(err)
+			encoder.Encode("failure")			
+			return
+		}
+		
+		encoder.Encode("submitted")
+	}
+	encoder.Encode("failure")			
 }
 
-func AddItemToOrder(req structs.AddItemToOrderRequest) {
-	_, err := DB.Query("insert into OrderItem (foodID, orderID, Customization) values(?,?,?);", req.Item.ItemID, req.OrderID, req.Item.Customization)
+// When Adding an item to an your must select if you will pay with the item with
+// meal swipes or with dollars. This will build up 2 accumulators in the row in the
+// orders table. These accumulators will then be used to see if the user has sufficent balance
+// to pay for their order.
+func AddItemToOrder(req structs.AddItemToOrderRequest) error {
+	_, err := DB.Query("insert into OrderItem (foodID, orderID, Customization, payWithSwipe) values(?,?,?,?);", req.Item.ItemID, req.OrderID, req.Item.Customization, req.PayWithMealSwipe)
 	if err != nil {
 		fmt.Println(err)
 		encoder.Encode("failure")
-		return
+		return err
 	}
+
+	if(req.PayWithMealSwipe) {
+		_, err := DB.Query("update Orders set swipeCost = swipeCost + 1 where id = ?;", req.OrderID)
+		if err != nil {
+			fmt.Println(err)
+			encoder.Encode("failure")
+			return err
+		}
+	} else {
+		rows, err := DB.Query("select price from Foods where ID = ?;", req.Item.ItemID)
+		if err != nil {
+			fmt.Println(err)
+			encoder.Encode("failure")			
+			return err
+		}
+		defer rows.Close()
+
+		var price int
+		for rows.Next() {
+			err := rows.Scan(&price)
+			if err != nil {
+				fmt.Println(err)
+				encoder.Encode("failure")			
+				return err
+			}
+		}
+
+		_, err = DB.Query("update Orders set centCost = centCost + ? where id = ?;", price, req.OrderID)
+		if err != nil {
+			fmt.Println(err)
+			encoder.Encode("failure")
+			return err
+		}
+	}
+
 	encoder.Encode("success")
+	return nil
 }
 
+// x
 func CheckOrderStatus(req structs.CheckOrderStatusRequest) {
 	rows, err := DB.Query("select * from Orders where ID = ?;", req.OrderID)
 	if err != nil {
@@ -329,6 +435,7 @@ func CheckOrderStatus(req structs.CheckOrderStatusRequest) {
 	encoder.Encode(&order)
 }
 
+// x
 func GetOrders(req structs.GetOrdersRequest)         {
 	rows, err := DB.Query("select * from Orders where diningHallID = ? and status = \"submitted\";", req.LocationID)
 	if err != nil {
@@ -352,6 +459,7 @@ func GetOrders(req structs.GetOrdersRequest)         {
 	encoder.Encode(orders)
 }
 
+// x
 func SelectOrder(req structs.SelectOrderRequest)     {
 	_, err := DB.Query("update Orders set status = \"selected\", lastStatusChange = ? where id = ?;",
 		time.Now(), req.OrderID)
@@ -408,6 +516,7 @@ func SelectOrder(req structs.SelectOrderRequest)     {
 	
 }
 
+// x
 func CompleteOrder(req structs.CompelteOrderRequest) {
 	_, err := DB.Query("update Orders set status = \"complete\", submitTime = ? where id = ?;",
 		time.Now(), req.OrderID)
@@ -419,7 +528,7 @@ func CompleteOrder(req structs.CompelteOrderRequest) {
 	encoder.Encode("complete")
 }
 
-
+// x
 func CreateItem(req structs.CreateItemRequest)       {
 	_, err := DB.Query("insert into Foods (menuID, name, description, price, availability, nutritionFacts) values (?,?,?,?,?,?);",
 		req.MenuID, req.NewItem.Name, req.NewItem.Description, req.NewItem.Cost, req.NewItem.IsAvailable, req.NewItem.NutritionFacts)
@@ -432,6 +541,7 @@ func CreateItem(req structs.CreateItemRequest)       {
 }
 
 
+// x
 func UpdateItem(req structs.UpdateItemRequest)       {
 	_, err := DB.Query("update Foods set name = ?, description = ?, price = ?, availability = ?, nutritionFacts = ? where id = ?;",
 		req.NewItem.Name, req.NewItem.Description, req.NewItem.Cost, req.NewItem.IsAvailable, req.NewItem.NutritionFacts, req.ItemID)
@@ -443,6 +553,7 @@ func UpdateItem(req structs.UpdateItemRequest)       {
 	encoder.Encode("updated")
 }
 
+// x
 func DeleteItem(req structs.DeleteItemRequest)       {
 	_, err := DB.Query("delete from Foods where id = ? AND menuID = ?;",
 		req.ItemID, req.MenuID)
@@ -510,7 +621,24 @@ func SendMealSwipes(req structs.SendMealSwipesRequest){
 	encoder.Encode(&res)
 }
 
-// check number of meal swips and send
-// get personal info. make net id uniqu
+// dollar amounts are in cents to avoid floating point
+func GetPaymentBalances(req structs.GetPaymentBalancesRequest) {
+	rows, err := DB.Query("select dollarBalance, mealSwipeBalance from users where id = ?;", req.UserID)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer rows.Close()
 
-// complete order instead of validation
+	var res structs.GetPaymentBalancesResponse
+
+	for rows.Next() {
+		err := rows.Scan(&res.CentsBalance, &res.MealSwipeBalance)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+	}
+
+	encoder.Encode(&res)
+}
