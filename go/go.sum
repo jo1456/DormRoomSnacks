@@ -99,6 +99,7 @@ github.com/kataras/golog v0.1.5 h1:WbXu2rUc3yX/QB2mcNP5AjR64UlaaxkYrGMkO58T4Js=
 github.com/kataras/golog v0.1.5/go.mod h1:jOSQ+C5fUqsNSwurB/oAHq1IFSb0KI3l6GMa7xB6dZA=
 github.com/kataras/iris/v12 v12.2.0-alpha.0.20201107104914-7b6a8f1e2646 h1:o9Y5X/2l0LO2tFYAwgdDXBgrOEWrqe10PsgmKbUHr9E=
 github.com/kataras/iris/v12 v12.2.0-alpha.0.20201107104914-7b6a8f1e2646/go.mod h1:cPU13COjId1GK1uXgcOr2dCcq1O4On2f6N2lK+FONjE=
+github.com/kataras/jwt v0.0.5 h1:h74XKau4eOvldGjCFXjR6izitN9wZx3DQ/9OtcpffRU=
 github.com/kataras/jwt v0.0.5/go.mod h1:4ss3aGJi58q3YGmhLUiOvNJnL7UlTXD7+Wf+skgsTmQ=
 github.com/kataras/neffos v0.0.16/go.mod h1:BqWkF1c6cSyqw85dfCdqXxK5cMo/hyBGhtNuFkxHyMg=
 github.com/kataras/pio v0.0.10 h1:b0qtPUqOpM2O+bqa5wr2O6dN4cQNwSmFd6HQqgVae0g=

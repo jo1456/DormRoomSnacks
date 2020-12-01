@@ -30,10 +30,19 @@
     <!-- end of navbar -->
 
     <!-- start of menu -->
-    {{if .IsMenu}}
         <div>
             <h1 class="display-1">Menu</h1>
-            {{range .MenuItems}}
+            <form class="form-inline" action="/get-menu-student" method="POST">
+                <select class="custom-select my-1 mr-sm-2">
+                    <option selected>Locations...</option>
+                    {{range .Locations}}
+                        <option name="menuID" value="{{.MenuID}}">{{.Name}}</option>
+                    {{end}}
+                </select>
+                <button type="submit" class="btn btn-primary my-1">Set Location</button>
+            </form>
+        {{if .IsMenu}}
+            {{range .Menu.Items}}
                 <form class="form-inline" action="/add-item-cart" method="POST">
                     <label class="my-1 mr-2" for="inlineFormCustomSelectPref">{{.ItemName}}</label>
                     <label class="sr-only" for="inlineFormInputGroupUsername2">Price</label>
@@ -49,19 +58,21 @@
                         <option value="2">2</option>
                         <option value="3">3</option>
                     </select>
+                    <input type="text" name="menuID" value="{{..Menu.ID}}" hidden>
+                    <input type="text" name="itemID" value="{{.ID}}" hidden>
                     <button type="submit" class="btn btn-primary my-1">Add To Cart</button>
                 </form>
             {{end}}
+        {{end}}
         </div>
-    {{end}}
     <!-- end of menu -->
 
     <!-- start of cart/checkout -->
     {{if .IsCheckout}}
     <div>
-        <h1 class="display-1">Menu</h1>
+        <h1 class="display-1">Checkout</h1>
         {{range .CartItems}}
-            <form class="form-inline" action="/add-item-cart" method="POST">
+            <form class="form-inline" action="/update-item-cart" method="POST">
                 <label class="my-1 mr-2" for="inlineFormCustomSelectPref">{{.ItemName}}</label>
                 <label class="sr-only" for="inlineFormInputGroupUsername2">Price</label>
                 <div class="input-group mb-2 mr-sm-2">
@@ -76,9 +87,15 @@
                     <option value="2">2</option>
                     <option value="3">3</option>
                 </select>
+                <input type="text" name="menuID" value="{{..Menu.ID}}" hidden>
+                <input type="text" name="itemID" value="{{.ID}}" hidden>
                 <button type="submit" class="btn btn-primary my-1">Update</button>
             </form>
         {{end}}
+        <form class="form-inline" action="/checkout" method="POST">
+            <input type="text" name="orderID" value="{{.OrderID}}" hidden>
+            <button type="submit" class="btn btn-danger my-1">Checkout</button>
+        </form>
     </div>
     {{end}}
     <!-- end of start/checkout -->

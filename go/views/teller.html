@@ -94,53 +94,64 @@
 
     <!-- start of order queue -->
     <div class="container">
-        <h1 class="display-1">Order Queue</h1>
-        <h1>Current Orders</h1>
-        <div>
-            {{range .Orders}}
-            <div class="row">
-                <div class="col-auto">
-                    <p>{{.ID}}</p>
-                    <p>{{.StudentID}}</p>
-                    <p>{{.OrderTimeStamp}}</p>
+        <form class="form-inline" action="/get-orders" method="POST">
+            <select class="custom-select my-1 mr-sm-2">
+                <option selected>Locations...</option>
+                {{range .Locations}}
+                    <option name="locationID" value="{{.LocationID}}">{{.Name}}</option>
+                {{end}}
+            </select>
+            <button type="submit" class="btn btn-primary my-1">Set Location</button>
+        </form>
+        {{if .isOrder}}
+            <h1 class="display-1">Order Queue</h1>
+            <h1>Current Orders</h1>
+            <div>
+                {{range .Orders}}
+                <div class="row">
+                    <div class="col-auto">
+                        <p>{{.ID}}</p>
+                        <p>{{.StudentID}}</p>
+                        <p>{{.OrderTimeStamp}}</p>
+                    </div>
+                    <div class="col-auto">
+                        <!-- item list -->
+                        {{range .OrderItems}}
+                        <span>{{.ID}}</span>
+                        <span>{{.ItemName}}</span>
+                        <span>{{.Quantity}}</span>
+                        <hr>
+                        {{end}}
+                        <!-- end item list -->
+                    </div>
+                    <div class="col-auto">
+                        <form class="form-inline mx-sm-2" action="/complete-order" method="POST">
+                            <input type="text" name="id" value="{{.ID}}" hidden>
+                            <button type="submit" class="btn btn-success mb-2">Complete Task</button>
+                        </form>
+                    </div>
                 </div>
-                <div class="col-auto">
-                    <!-- item list -->
-                    {{range .OrderItems}}
-                    <span>{{.ID}}</span>
-                    <span>{{.ItemName}}</span>
-                    <span>{{.Quantity}}</span>
-                    <hr>
-                    {{end}}
-                    <!-- end item list -->
-                </div>
-                <div class="col-auto">
-                    <form class="form-inline mx-sm-2" action="/complete-order" method="POST">
-                        <input type="text" name="id" value="{{.ID}}" hidden>
-                        <button type="submit" class="btn btn-success mb-2">Complete Task</button>
-                    </form>
-                </div>
+                <hr>
+                {{end}}
             </div>
-            <hr>
-            {{end}}
-        </div>
-        <br>
-        <br>
-        <h1>Completed Orders</h1>
-        <div>
-            {{range .CompletedOrders}}
-            <span>{{.ID}}</span>
-            <form class="form-inline mx-sm-2" action="/redo-order" method="POST">
-                <input type="text" name="id" value="{{.ID}}" hidden>
-                <button type="submit" class="btn btn-info mb-2">Back To Queue</button>
-            </form>
-            <form class="form-inline mx-sm-2" action="/refund-order" method="POST">
-                <input type="text" name="id" value="{{.ID}}" hidden>
-                <button type="submit" class="btn btn-danger mb-2">Refund Order</button>
-            </form>
-            <hr>
-            {{end}}
-        </div>
+            <br>
+            <br>
+            <h1>Completed Orders</h1>
+            <div>
+                {{range .CompletedOrders}}
+                <span>{{.ID}}</span>
+                <form class="form-inline mx-sm-2" action="/redo-order" method="POST">
+                    <input type="text" name="id" value="{{.ID}}" hidden>
+                    <button type="submit" class="btn btn-info mb-2">Back To Queue</button>
+                </form>
+                <form class="form-inline mx-sm-2" action="/refund-order" method="POST">
+                    <input type="text" name="id" value="{{.ID}}" hidden>
+                    <button type="submit" class="btn btn-danger mb-2">Refund Order</button>
+                </form>
+                <hr>
+                {{end}}
+            </div>
+        {{end}}
     </div>
     <!-- end of order queue -->
     {{end}}

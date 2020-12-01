@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+
 	// "log"
 	"net"
 	"time"
@@ -42,7 +43,7 @@ func main() {
 
 	// databaseURI := fmt.Sprintf("%s:%s@%s/%s", DB_USERNAME, DB_PASSWORD, DB_HOSTURL, DB_NAME)
 
-	db, err := sql.Open("mysql", "b2766d1c91f7c7:0c0f617f@tcp(us-cdbr-east-02.cleardb.com)/heroku_5873df879639de6") 
+	db, err := sql.Open("mysql", "b2766d1c91f7c7:0c0f617f@tcp(us-cdbr-east-02.cleardb.com)/heroku_5873df879639de6")
 	if err != nil {
 		panic(err.Error())
 	}
@@ -185,7 +186,6 @@ func ListLocations() {
 		resp.Locations = append(resp.Locations, structs.Location{ID: location.ID, Name: location.Name, Address: location.Address, Phone: location.Phone, MenuID: location.MenuID, Hours: location.Hours})
 	}
 
-
 	encoder.Encode(&resp)
 	fmt.Println(resp)
 
@@ -262,8 +262,7 @@ func ViewItem(req structs.ViewItemRequest) {
 // 2. Add items to order
 // 3. Submit order which updates to status to "submitted"
 
-
-// cart -> submitted -> 
+// cart -> submitted ->
 
 func CreateOrder(req structs.CreateOrderRequest) {
 	_, err := DB.Query("insert into Orders (personID, diningHallID, status, submitTime, lastStatusChange) values(?,?,?,?,?);",
@@ -294,7 +293,7 @@ func CreateOrder(req structs.CreateOrderRequest) {
 		return
 	}
 
-	encoder.Encode(id)
+	encoder.Encode(&id)
 }
 
 // x
@@ -303,8 +302,8 @@ func SubmitOrder(req structs.UpdateOrderRequest) {
 	rows, err := DB.Query("select swipeCost, centCost, personID from Orders where ID = ?;", req.ID)
 	if err != nil {
 		fmt.Println(err)
-		encoder.Encode("failure")			
-		return 
+		encoder.Encode("failure")
+		return
 	}
 	defer rows.Close()
 
@@ -315,16 +314,16 @@ func SubmitOrder(req structs.UpdateOrderRequest) {
 		err := rows.Scan(&swipeCost, &centCost, &userID)
 		if err != nil {
 			fmt.Println(err)
-			encoder.Encode("failure")			
-			return 
+			encoder.Encode("failure")
+			return
 		}
 	}
 
 	rows, err = DB.Query("select dollarBalance, mealSwipeBalance from Persons where ID = ?;", userID)
 	if err != nil {
 		fmt.Println(err)
-		encoder.Encode("failure")			
-		return 
+		encoder.Encode("failure")
+		return
 	}
 	defer rows.Close()
 
@@ -334,32 +333,32 @@ func SubmitOrder(req structs.UpdateOrderRequest) {
 		err := rows.Scan(&swipeCost, &centCost)
 		if err != nil {
 			fmt.Println(err)
-			encoder.Encode("failure")			
-			return 
+			encoder.Encode("failure")
+			return
 		}
 	}
 
-	if(dollarBalance > centCost && mealSwipeBalance > swipeCost) {
+	if dollarBalance > centCost && mealSwipeBalance > swipeCost {
 
 		_, err := DB.Query("update Personds set dollarBalance = dollarBalance - ?, mealSwipeBalance = mealSwipeBalance - ? where id = ?;",
-		centCost, swipeCost, userID)
+			centCost, swipeCost, userID)
 		if err != nil {
 			fmt.Println(err)
-			encoder.Encode("failure")			
+			encoder.Encode("failure")
 			return
 		}
 
 		_, err = DB.Query("update Orders set status = \"submitted\", submitTime = ? where id = ?;",
-		time.Now(), req.ID)
+			time.Now(), req.ID)
 		if err != nil {
 			fmt.Println(err)
-			encoder.Encode("failure")			
+			encoder.Encode("failure")
 			return
 		}
-		
+
 		encoder.Encode("submitted")
 	}
-	encoder.Encode("failure")			
+	encoder.Encode("failure")
 }
 
 // When Adding an item to an your must select if you will pay with the item with
@@ -374,7 +373,7 @@ func AddItemToOrder(req structs.AddItemToOrderRequest) error {
 		return err
 	}
 
-	if(req.PayWithMealSwipe) {
+	if req.PayWithMealSwipe {
 		_, err := DB.Query("update Orders set swipeCost = swipeCost + 1 where id = ?;", req.OrderID)
 		if err != nil {
 			fmt.Println(err)
@@ -385,7 +384,7 @@ func AddItemToOrder(req structs.AddItemToOrderRequest) error {
 		rows, err := DB.Query("select price from Foods where ID = ?;", req.Item.ItemID)
 		if err != nil {
 			fmt.Println(err)
-			encoder.Encode("failure")			
+			encoder.Encode("failure")
 			return err
 		}
 		defer rows.Close()
@@ -395,7 +394,7 @@ func AddItemToOrder(req structs.AddItemToOrderRequest) error {
 			err := rows.Scan(&price)
 			if err != nil {
 				fmt.Println(err)
-				encoder.Encode("failure")			
+				encoder.Encode("failure")
 				return err
 			}
 		}
@@ -436,7 +435,7 @@ func CheckOrderStatus(req structs.CheckOrderStatusRequest) {
 }
 
 // x
-func GetOrders(req structs.GetOrdersRequest)         {
+func GetOrders(req structs.GetOrdersRequest) {
 	rows, err := DB.Query("select * from Orders where diningHallID = ? and status = \"submitted\";", req.LocationID)
 	if err != nil {
 		fmt.Println(err)
@@ -456,11 +455,11 @@ func GetOrders(req structs.GetOrdersRequest)         {
 		orders = append(orders, order)
 	}
 
-	encoder.Encode(orders)
+	encoder.Encode(&orders)
 }
 
 // x
-func SelectOrder(req structs.SelectOrderRequest)     {
+func SelectOrder(req structs.SelectOrderRequest) {
 	_, err := DB.Query("update Orders set status = \"selected\", lastStatusChange = ? where id = ?;",
 		time.Now(), req.OrderID)
 	if err != nil {
@@ -490,7 +489,6 @@ func SelectOrder(req structs.SelectOrderRequest)     {
 
 	orderAndItems.Order = order
 
-
 	rows, err = DB.Query("select * from OrderItem where orderID = ?;", req.OrderID)
 	if err != nil {
 		fmt.Println(err)
@@ -513,7 +511,7 @@ func SelectOrder(req structs.SelectOrderRequest)     {
 	orderAndItems.Items = items
 
 	encoder.Encode(&orderAndItems)
-	
+
 }
 
 // x
@@ -524,48 +522,47 @@ func CompleteOrder(req structs.CompelteOrderRequest) {
 		fmt.Println(err)
 		return
 	}
-	
+
 	encoder.Encode("complete")
 }
 
 // x
-func CreateItem(req structs.CreateItemRequest)       {
+func CreateItem(req structs.CreateItemRequest) {
 	_, err := DB.Query("insert into Foods (menuID, name, description, price, availability, nutritionFacts) values (?,?,?,?,?,?);",
 		req.MenuID, req.NewItem.Name, req.NewItem.Description, req.NewItem.Cost, req.NewItem.IsAvailable, req.NewItem.NutritionFacts)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	
+
 	encoder.Encode("created")
 }
 
-
 // x
-func UpdateItem(req structs.UpdateItemRequest)       {
+func UpdateItem(req structs.UpdateItemRequest) {
 	_, err := DB.Query("update Foods set name = ?, description = ?, price = ?, availability = ?, nutritionFacts = ? where id = ?;",
 		req.NewItem.Name, req.NewItem.Description, req.NewItem.Cost, req.NewItem.IsAvailable, req.NewItem.NutritionFacts, req.ItemID)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	
+
 	encoder.Encode("updated")
 }
 
 // x
-func DeleteItem(req structs.DeleteItemRequest)       {
+func DeleteItem(req structs.DeleteItemRequest) {
 	_, err := DB.Query("delete from Foods where id = ? AND menuID = ?;",
 		req.ItemID, req.MenuID)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	
+
 	encoder.Encode("deleted")
 }
 
-func SendMealSwipes(req structs.SendMealSwipesRequest){
+func SendMealSwipes(req structs.SendMealSwipesRequest) {
 	rows, err := DB.Query("select mealSwipeBalance from persons where ID = ?;", req.FromID)
 	if err != nil {
 		fmt.Println(err)
@@ -581,17 +578,17 @@ func SendMealSwipes(req structs.SendMealSwipesRequest){
 			return
 		}
 	}
-	
+
 	var res structs.SendMealSwipesResponse
-	if(fromMealSwipeBalance >= req.NumSwipes && req.NumSwipes >= 0) {
-		_, err := DB.Query("update persons set mealSwipeBalance = mealSwipeBalance + ? where ID = ?;", req.NumSwipes ,req.ToID)
+	if fromMealSwipeBalance >= req.NumSwipes && req.NumSwipes >= 0 {
+		_, err := DB.Query("update persons set mealSwipeBalance = mealSwipeBalance + ? where ID = ?;", req.NumSwipes, req.ToID)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
 		defer rows.Close()
 
-		_, err = DB.Query("update persons set mealSwipeBalance = mealSwipeBalance - ? where ID = ?;", req.NumSwipes ,req.FromID)
+		_, err = DB.Query("update persons set mealSwipeBalance = mealSwipeBalance - ? where ID = ?;", req.NumSwipes, req.FromID)
 		if err != nil {
 			fmt.Println(err)
 			return
