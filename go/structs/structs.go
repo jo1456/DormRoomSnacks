@@ -30,7 +30,6 @@ type FoodItem struct {
 	Description    string
 	Cost           int
 	IsAvailable    bool
-	Ingredients    string
 	NutritionFacts string
 }
 
@@ -40,24 +39,38 @@ type User struct {
 	MealSwipeBalance int
 }
 
-type ItemOrder struct {
+type OrderItem struct {
 	ID            int
-	ItemID        int
+	FoodID        int
 	Customization string
+	PayWithSwipe 	bool
+}
+
+type OrderItemWithFood struct {
+	Item OrderItem
+	Food FoodItem
 }
 
 type Order struct {
 	ID 		   int
 	UserID     int
 	LocationID int
-	Item       ItemOrder
+	Item       OrderItem
 	Status     string
 	SubmitTime string
+	LastStatusChange string
+	SwipeCost  int
+	CentCost   int
 }
 
 type OrderAndItems struct {
 	Order Order
-	Items []ItemOrder
+	Items []OrderItem
+}
+
+type OrderAndItemsWithFood struct {
+	Order Order
+	Items []OrderItemWithFood
 }
 
 type ListLocationsResponse struct {
@@ -82,7 +95,6 @@ type ViewItemResponse struct {
 
 type CreateOrderRequest struct {
 	OrderRequest Order
-	PayWithMealSwipe bool
 }
 
 type CreateOrderResponse struct {
@@ -91,12 +103,8 @@ type CreateOrderResponse struct {
 	Status  string
 }
 
-type CheckOrderStatusRequest struct {
-	OrderID int
-}
-
-type CheckOrderStatusResponse struct {
-	Status string
+type GetOrderHistoryRequest struct {
+	UserID int
 }
 
 type GetOrdersRequest struct {
@@ -104,7 +112,7 @@ type GetOrdersRequest struct {
 }
 
 type GetOrdersResponse struct {
-	Orders []ItemOrder
+	Orders []OrderItem
 }
 
 type SelectOrderRequest struct {
@@ -157,12 +165,16 @@ type UpdateOrderRequest struct {
 
 type AddItemToOrderRequest struct {
 	OrderID int
-	Item ItemOrder
-	PayWithMealSwipe bool
+	Item OrderItem
 }
 
 type AddItemToOrderResponse struct {
 
+}
+
+type DeleteItemFromOrderRequest struct {
+	ItemID int
+	OrderID int
 }
 
 type SendMealSwipesRequest struct {
@@ -173,7 +185,7 @@ type SendMealSwipesRequest struct {
 
 type SendMealSwipesResponse struct {
 	Success bool
-	Balance int 
+	Balance int
 }
 
 type GetPaymentBalancesRequest struct {
@@ -183,4 +195,19 @@ type GetPaymentBalancesRequest struct {
 type GetPaymentBalancesResponse struct {
 	MealSwipeBalance int
 	CentsBalance int
+}
+
+type GetCartRequest struct {
+	UserID int
+}
+
+type LoginRequest struct {
+	UserNetID string
+	Password string
+}
+
+type LoginResponse struct {
+	Status string
+	IsStudent bool
+	UserID int
 }

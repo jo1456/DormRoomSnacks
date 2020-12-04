@@ -116,11 +116,11 @@ func main() {
 			decoder.Decode(&req)
 
 			AddItemToOrder(req)
-		case "CheckOrderStatus":
-			var req structs.CheckOrderStatusRequest
+		case "GetOrderHistory":
+			var req structs.GetOrderHistoryRequest
 			decoder.Decode(&req)
 
-			CheckOrderStatus(req)
+			GetOrderHistory(req)
 		case "GetOrders":
 			var req structs.GetOrdersRequest
 			decoder.Decode(&req)
@@ -161,6 +161,21 @@ func main() {
 			decoder.Decode(&req)
 
 			GetPaymentBalances(req)
+		case "Login":
+			var req structs.LoginRequest
+			decoder.Decode(&req)
+
+			Login(req)
+		case "DeleteItemFromOrder":
+			var req structs.DeleteItemFromOrderRequest
+			decoder.Decode(&req)
+
+			DeleteItemFromOrder(req)
+		case "GetCurrentUserCart":
+			var req structs.GetCartRequest
+			decoder.Decode(&req)
+
+			GetCurrentUserCart(req)
 		}
 	}
 }
@@ -265,13 +280,8 @@ func ViewItem(req structs.ViewItemRequest) {
 // cart -> submitted ->
 
 func CreateOrder(req structs.CreateOrderRequest) {
-	_, err := DB.Query("insert into Orders (personID, diningHallID, status, submitTime, lastStatusChange) values(?,?,?,?,?);",
-		req.OrderRequest.UserID, req.OrderRequest.LocationID, "In Queue", 0, time.Now())
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	rows, err := DB.Query("SELECT max(id) from Orders;")
+
+	rows, err := DB.Query("SELECT personID from Orders where status = 'Cart' and personID = ?;", req.OrderRequest.UserID)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -280,20 +290,17 @@ func CreateOrder(req structs.CreateOrderRequest) {
 
 	var id int
 	for rows.Next() {
-		err := rows.Scan(&id)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-	}
-
-	err = AddItemToOrder(structs.AddItemToOrderRequest{OrderID: id, Item: req.OrderRequest.Item, PayWithMealSwipe: req.PayWithMealSwipe})
-	if err != nil {
+		rows.Scan(&id)
 		fmt.Println(err)
 		return
 	}
 
-	encoder.Encode(&id)
+	_, err = DB.Query("insert into Orders (personID, diningHallID, status, submitTime, lastStatusChange) values(?,?,?,?,?);",
+		req.OrderRequest.UserID, req.OrderRequest.LocationID, "Cart", 0, time.Now())
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 }
 
 // x
@@ -366,14 +373,14 @@ func SubmitOrder(req structs.UpdateOrderRequest) {
 // orders table. These accumulators will then be used to see if the user has sufficent balance
 // to pay for their order.
 func AddItemToOrder(req structs.AddItemToOrderRequest) error {
-	_, err := DB.Query("insert into OrderItem (foodID, orderID, Customization, payWithSwipe) values(?,?,?,?);", req.Item.ItemID, req.OrderID, req.Item.Customization, req.PayWithMealSwipe)
+	_, err := DB.Query("insert into OrderItem (foodID, orderID, Customization, payWithSwipe) values(?,?,?,?);", req.Item.FoodID, req.OrderID, req.Item.Customization, req.Item.PayWithSwipe)
 	if err != nil {
 		fmt.Println(err)
 		encoder.Encode("failure")
 		return err
 	}
 
-	if req.PayWithMealSwipe {
+	if req.Item.PayWithSwipe {
 		_, err := DB.Query("update Orders set swipeCost = swipeCost + 1 where id = ?;", req.OrderID)
 		if err != nil {
 			fmt.Println(err)
@@ -381,7 +388,7 @@ func AddItemToOrder(req structs.AddItemToOrderRequest) error {
 			return err
 		}
 	} else {
-		rows, err := DB.Query("select price from Foods where ID = ?;", req.Item.ItemID)
+		rows, err := DB.Query("select price from Foods where ID = ?;", req.Item.FoodID)
 		if err != nil {
 			fmt.Println(err)
 			encoder.Encode("failure")
@@ -411,9 +418,10 @@ func AddItemToOrder(req structs.AddItemToOrderRequest) error {
 	return nil
 }
 
-// x
-func CheckOrderStatus(req structs.CheckOrderStatusRequest) {
-	rows, err := DB.Query("select * from Orders where ID = ?;", req.OrderID)
+func GetCurrentUserCart(req structs.GetCartRequest) {
+	var orderAndItems structs.OrderAndItems
+
+	rows, err := DB.Query("select * from Orders where personID = ? and status = 'Cart';", req.UserID)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -431,7 +439,117 @@ func CheckOrderStatus(req structs.CheckOrderStatusRequest) {
 		}
 	}
 
-	encoder.Encode(&order)
+	orderAndItems.Order = order
+
+	rows, err = DB.Query("select * from OrderItem where orderID = ?;", order.ID)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer rows.Close()
+
+	var items []structs.OrderItem
+	for rows.Next() {
+		var item structs.OrderItem
+		var lastStatusChange string
+		err := rows.Scan(&item.ID, &item.FoodID, &lastStatusChange, &item.Customization, &item.PayWithSwipe)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		items = append(items, item)
+	}
+
+	orderAndItems.Items = items
+
+	encoder.Encode(&orderAndItems)
+
+}
+
+func DeleteItemFromOrder(req structs.DeleteItemFromOrderRequest)  {
+	rows, err := DB.Query("select * from OrderItem where id = ?;", req.ItemID)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer rows.Close()
+
+	var item structs.OrderItem
+	for rows.Next() {
+		var lastStatusChange string
+		err := rows.Scan(&item.ID, &item.FoodID, &lastStatusChange, &item.Customization, &item.PayWithSwipe)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+	}
+
+	_, err = DB.Query("delete from OrderItem where id = ?;", req.ItemID)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	if item.PayWithSwipe {
+		_, err := DB.Query("update Orders set swipeCost = swipeCost - 1 where id = ?;", req.OrderID)
+		if err != nil {
+			fmt.Println(err)
+			encoder.Encode("failure")
+			return
+		}
+	} else {
+		rows, err := DB.Query("select price from Foods where ID = ?;", item.FoodID)
+		if err != nil {
+			fmt.Println(err)
+			encoder.Encode("failure")
+			return
+		}
+		defer rows.Close()
+
+		var price int
+		for rows.Next() {
+			err := rows.Scan(&price)
+			if err != nil {
+				fmt.Println(err)
+				encoder.Encode("failure")
+				return
+			}
+		}
+
+		_, err = DB.Query("update Orders set centCost = centCost - ? where id = ?;", price, req.OrderID)
+		if err != nil {
+			fmt.Println(err)
+			encoder.Encode("failure")
+			return
+		}
+	}
+
+	encoder.Encode("success")
+	return
+}
+
+
+// x
+func GetOrderHistory(req structs.GetOrderHistoryRequest) {
+	rows, err := DB.Query("select * from Orders where personID = ?;", req.UserID)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer rows.Close()
+
+	var orders []structs.Order
+	for rows.Next() {
+		var order structs.Order
+		err := rows.Scan(&order.ID, &order.UserID, &order.LocationID, &order.Status, &order.SubmitTime, &order.LastStatusChange, &order.SwipeCost, &order.CentCost)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		orders = append(orders, order)
+	}
+
+	encoder.Encode(&orders)
 }
 
 // x
@@ -467,7 +585,7 @@ func SelectOrder(req structs.SelectOrderRequest) {
 		return
 	}
 
-	var orderAndItems structs.OrderAndItems
+	var orderAndItems structs.OrderAndItemsWithFood
 
 	rows, err := DB.Query("select * from Orders where ID = ?;", req.OrderID)
 	if err != nil {
@@ -489,23 +607,24 @@ func SelectOrder(req structs.SelectOrderRequest) {
 
 	orderAndItems.Order = order
 
-	rows, err = DB.Query("select * from OrderItem where orderID = ?;", req.OrderID)
+	rows, err = DB.Query("select * from OrderItem, Foods where OrderItem.orderID = ? and Foods.id = OrderItem.foodID;", req.OrderID)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	defer rows.Close()
 
-	var items []structs.ItemOrder
+	var items []structs.OrderItemWithFood
 	for rows.Next() {
-		var item structs.ItemOrder
-		var lastStatusChange string
-		err := rows.Scan(&item.ID, &item.ItemID, &lastStatusChange, &item.Customization)
+		var item structs.OrderItem
+		var food structs.FoodItem
+		var orderID int
+		err := rows.Scan(&item.ID, &item.FoodID, &orderID, &item.Customization, &item.PayWithSwipe, &food.ID, &food.Name, &food.Description, &food.Cost, &food.IsAvailable, &food.NutritionFacts)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		items = append(items, item)
+		items = append(items, structs.OrderItemWithFood{Item: item, Food: food})
 	}
 
 	orderAndItems.Items = items
@@ -620,7 +739,7 @@ func SendMealSwipes(req structs.SendMealSwipesRequest) {
 
 // dollar amounts are in cents to avoid floating point
 func GetPaymentBalances(req structs.GetPaymentBalancesRequest) {
-	rows, err := DB.Query("select dollarBalance, mealSwipeBalance from users where id = ?;", req.UserID)
+	rows, err := DB.Query("select dollarBalance, mealSwipeBalance from persons where id = ?;", req.UserID)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -631,6 +750,29 @@ func GetPaymentBalances(req structs.GetPaymentBalancesRequest) {
 
 	for rows.Next() {
 		err := rows.Scan(&res.CentsBalance, &res.MealSwipeBalance)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+	}
+
+	encoder.Encode(&res)
+}
+
+// x
+func Login(req structs.LoginRequest) {
+	rows, err := DB.Query("select id, student from persons where netID = ? and password = ?;", req.UserNetID, req.Password)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer rows.Close()
+
+	res := structs.LoginResponse{Status: "failure", IsStudent:false, UserID: -1}
+
+	for rows.Next() {
+		res.Status = "Success"
+		err := rows.Scan(&res.UserID, &res.IsStudent)
 		if err != nil {
 			fmt.Println(err)
 			return

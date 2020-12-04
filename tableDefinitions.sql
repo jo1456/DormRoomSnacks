@@ -10,6 +10,7 @@ create table Persons(
     student bool, # 1 if student, 0 if staff
 	dollarBalance int,
 	mealSwipeBalance int,
+	password varchar(255),
     primary key(id)
 );
 
