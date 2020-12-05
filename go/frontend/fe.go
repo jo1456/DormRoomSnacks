@@ -1,5 +1,5 @@
 //Jeffrey Oberg jo1456
-//Project part 2 CRUD APP with front and back end servers
+
 // Front end
 
 package main
@@ -7,10 +7,9 @@ package main
 import (
 	"dormroomsnacks/structs"
 	"strconv"
-	"time"
 
 	"github.com/kataras/iris/v12"
-	"github.com/kataras/iris/v12/middleware/jwt"
+	"github.com/kataras/iris/v12/sessions"
 
 	"encoding/json"
 	"flag"
@@ -19,17 +18,13 @@ import (
 )
 
 var (
-	connection net.Conn
-	encoder    *json.Encoder
-	decoder    *json.Decoder
-	app        *iris.Application
-	secret     = []byte("signature_hmac_secret_shared_key")
+	connection             net.Conn
+	encoder                *json.Encoder
+	decoder                *json.Decoder
+	app                    *iris.Application
+	cookieNameForSessionID = "mycookiesessionnameid"
+	sess                   = sessions.New(sessions.Config{Cookie: cookieNameForSessionID})
 )
-
-type authClaims struct {
-	UserID   string `json:"userID"`
-	Username string `json:"username"`
-}
 
 func backendComm(req interface{}) interface{} {
 	err := encoder.Encode(&req)
@@ -67,15 +62,6 @@ func main() {
 
 	app = iris.New()
 
-	signer := jwt.NewSigner(jwt.HS256, secret, 10*time.Minute)
-	app.Get("/", generateToken(signer))
-
-	verifier := jwt.NewVerifier(jwt.HS256, secret)
-	verifier.WithDefaultBlocklist()
-	verifyMiddleware := verifier.Verify(func() interface{} {
-		return new(authClaims)
-	})
-
 	tmpl := iris.HTML("./views", ".html")
 	tmpl.Delims("{{", "}}")
 	app.RegisterView(tmpl)
@@ -86,60 +72,75 @@ func main() {
 	app.Get("/loginform", loginUser)
 	app.Post("/signupform", registerUser)
 
-	protectedAPI := app.Party("/protected")
-	protectedAPI.Use(verifyMiddleware)
-
-	protectedAPI.Get("/", protected)
-	protectedAPI.Get("/logout", logout)
-	protectedAPI.Get("/Menu", getLocations)
-	protectedAPI.Get("/get-menu-student", getMenu)
-	protectedAPI.Post("/add-item-cart", addItemCart)
-	// protectedAPI.Get("/Cart", getCart) // how do i do this?
-	protectedAPI.Get("/Orders", getLocationsTeller)
-	protectedAPI.Get("/get-orders", getOrders)
-	protectedAPI.Post("/checkout")
+	// paths that require auth
+	app.Get("/logout", requiresLogin, logout)
+	app.Get("/Menu", requiresLogin, getLocations) // students
+	app.Get("/get-menu-student", requiresLogin, rediGetMenu)
+	app.Get("/menu/{menuID:int}", requiresLogin, getMenu)
+	app.Post("/add-item-cart", requiresLogin, addItemOrder)
+	app.Get("/Cart", requiresLogin, getCart) // how do i do this?
+	app.Post("/checkout", requiresLogin, submitOrder)
+	app.Get("/Orders", requiresLogin, getLocationsTeller) // teller
+	app.Get("/get-orders", requiresLogin, getOrders)
 
 	// turn on the app
 	app.Listen(":" + *listenPort)
 }
 
-func generateToken(signer *jwt.Signer) iris.Handler {
-	return func(ctx iris.Context) {
-		claims := authClaims{UserID: "bar"}
-
-		token, err := signer.Sign(claims)
-		if err != nil {
-			ctx.StopWithStatus(iris.StatusInternalServerError)
-			return
-		}
-
-		ctx.Write(token)
+func requiresLogin(ctx iris.Context) {
+	session := sess.Start(ctx)
+	auth, _ := session.GetBoolean("authenticated")
+	if !auth {
+		ctx.Redirect("/", iris.StatusFound)
 	}
+	ctx.Next()
 }
 
-func protected(ctx iris.Context) {
-	claims := jwt.Get(ctx).(*authClaims)
+func loginUser(ctx iris.Context) {
+	session := sess.Start(ctx)
 
-	standardClaims := jwt.GetVerifiedToken(ctx).StandardClaims
-	expiresAtString := standardClaims.ExpiresAt().
-		Format(ctx.Application().ConfigurationReadOnly().GetTimeFormat())
-	timeLeft := standardClaims.Timeleft()
+	formData := ctx.FormValues()
+	userID := formData["userID"][0]
+	password := formData["password"][0]
 
-	ctx.Writef("foo=%s\nexpires at: %s\ntime left: %s\n", claims.UserID, expiresAtString, timeLeft)
+	loginReq := structs.LoginRequest{UserNetID: userID, Password: password}
+	loginRes, err := backendComm(loginReq).(structs.LoginResponse)
+	if !err {
+		panic(1)
+	}
+	if !loginRes.Status {
+		ctx.ViewData("error", true)
+		ctx.ViewData("IsLogin", true)
+		ctx.View("login.html")
+	}
+	session.Set("authenticated", true)
+	session.Set("userID", loginRes.UserID)
+	session.Set("isStudent", loginRes.IsStudent)
+	ctx.Redirect("/", iris.StatusFound)
+}
+
+func registerUser(ctx iris.Context) {
+	return
 }
 
 func logout(ctx iris.Context) {
-	err := ctx.Logout()
-	if err != nil {
-		ctx.WriteString(err.Error())
-	} else {
-		ctx.Writef("token invalidated, a new token is required to access the protected API")
-	}
+	session := sess.Start(ctx)
+	session.Destroy()
 }
 
 func getHomePage(ctx iris.Context) {
-	ctx.ViewData("ClientName", "Guest") // to be changed later, for dynamic response
-	ctx.ViewData("LoggedIn", false)
+	session := sess.Start(ctx)
+
+	userID, _ := session.GetInt("userID")
+	isStudent, _ := session.GetBoolean("isStudent")
+	if userID == -1 {
+		ctx.ViewData("ClientName", "Guest")
+		ctx.ViewData("LoggedIn", false)
+	} else {
+		ctx.ViewData("ClientName", userID)
+		ctx.ViewData("IsStudent", isStudent)
+		ctx.ViewData("LoggedIn", true)
+	}
 	ctx.View("index.html")
 }
 
@@ -153,20 +154,14 @@ func getSignupPage(ctx iris.Context) {
 	ctx.View("login.html")
 }
 
-func loginUser(ctx iris.Context) {
-	return
-}
-
-func registerUser(ctx iris.Context) {
-	return
-}
-
+// broken after, can't change selection
 func getLocations(ctx iris.Context) {
 	req := structs.Request{FunctionName: "ListLocations"}
 	locations, ok := backendComm(req).(structs.ListLocationsResponse)
 	if !ok {
 		panic(1)
 	}
+	ctx.ViewData("isLocSelec", true)
 	ctx.ViewData("Locations", locations.Locations)
 	ctx.View("student.html")
 }
@@ -177,52 +172,106 @@ func getLocationsTeller(ctx iris.Context) {
 	if !ok {
 		panic(1)
 	}
+	ctx.ViewData("isLocSelec", true)
 	ctx.ViewData("Locations", locations.Locations)
 	ctx.View("teller.html")
 }
 
-func getMenu(ctx iris.Context) {
-	req := structs.Request{FunctionName: "GetMenu"}
-	backendComm(req)
+func rediGetMenu(ctx iris.Context) {
+	session := sess.Start(ctx)
+	userID, _ := session.GetInt("userID")
 
 	form := ctx.FormValues()
 	menuID := form["menuID"][0]
-	menuIDInt, _ := strconv.Atoi(menuID)
-	menuReq := structs.GetMenuRequest{MenuID: menuIDInt}
-	menu, ok := backendComm(menuReq).(structs.Menu)
+
+	// check if there is already an active order else create one - in backend
+	coReq := structs.CreateOrderRequest{UserID: userID}
+	req := structs.Request{FunctionName: "GetMenu", Data: coReq}
+	backendComm(req)
+
+	redirectLink := fmt.Sprintf("%s%s", "/menu/", menuID)
+	ctx.Redirect(redirectLink, iris.StatusFound)
+}
+
+func getMenu(ctx iris.Context) {
+	params := ctx.Params()
+	menuID, err := params.GetInt("menuID")
+	if err != nil {
+		panic(1)
+	}
+
+	menuReq := structs.GetMenuRequest{MenuID: menuID}
+	req := structs.Request{FunctionName: "GetMenu", Data: menuReq}
+	menu, ok := backendComm(req).(structs.Menu)
 	if !ok {
 		panic(1)
 	}
+
 	ctx.ViewData("isMenu", true)
 	ctx.ViewData("Menu", menu)
 	ctx.View("student.html")
 }
 
-func addItemCart(ctx iris.Context) {
-	req := structs.Request{FunctionName: "AddItemToOrder"}
-	backendComm(req)
-
+func addItemOrder(ctx iris.Context) { // add pay with meal swipe
 	form := ctx.FormValues()
 	itemID, err := strconv.Atoi(form["itemID"][0])
 	if err != nil {
 		panic(1)
 	}
-	someItem := structs.ItemOrder{ItemID: itemID} // why do we need this? lets just change directly to itemID
-	addReq := structs.AddItemToOrderRequest{OrderID: 0, Item: someItem, PayWithMealSwipe: false}
-	backendComm(addReq)
+	orderID, err := strconv.Atoi(form["orderID"][0])
+	if err != nil {
+		panic(1)
+	}
+	pws := form["mealSwipe"][0]
+	pwsB := false
+	if pws == "something" {
+		pwsB = true
+	} else {
+		pwsB = false
+	}
+	someItem := structs.OrderItem{ID: orderID, FoodID: itemID, Customization: "none", PayWithSwipe: pwsB}
+	addReq := structs.AddItemToOrderRequest{Item: someItem}
+	req := structs.Request{FunctionName: "AddItemToOrder", Data: addReq}
+	res, ok := backendComm(req).(string)
+	if !ok {
+		panic(1)
+	}
+	if res == "failure" {
+
+	} else {
+
+	}
+}
+
+func getCart(ctx iris.Context) {
+
 }
 
 func submitOrder(ctx iris.Context) {
+	form := ctx.FormValues()
+	orderID, err := strconv.Atoi(form["orderID"][0])
+	if err != nil {
+		panic(1)
+	}
+	req := structs.UpdateOrderRequest{ID: orderID}
+	res, err2 := backendComm(req).(string)
+	if err2 {
+		panic(1)
+	}
+	if res == "success" {
+		ctx.Redirect("/protected/", iris.StatusFound)
+	} else {
+		ctx.Redirect("/protected/Cart", iris.StatusFound)
+	}
+}
+
+// new get active cart order (to be added)
+
+func checkOrderStatus(ctx iris.Context) { // get order history
 
 }
 
-// can we add items to cart and when checkout, we can package them into an order
-
-// why do we need this
-func checkOrderStatus(ctx iris.Context) {
-
-}
-
+// for teller - only returns order IDs
 func getOrders(ctx iris.Context) {
 	req := structs.Request{FunctionName: "GetOrder"}
 	backendComm(req)
@@ -240,7 +289,7 @@ func getOrders(ctx iris.Context) {
 	ctx.View("teller.html")
 }
 
-// idk what this is
+// get all details for a specific - returns food items - changes status - add new section for detailed food view
 func selectOrder(ctx iris.Context) {
 
 }
@@ -261,10 +310,12 @@ func deleteItem(req structs.DeleteItemRequest) {
 
 }
 
+// add form on home page
 func sendMealSwipes(req structs.SendMealSwipesRequest) {
 
 }
 
+// add to homepage convert to string
 // dollar amounts are in cents to avoid floating point
 func getPaymentBalances(req structs.GetPaymentBalancesRequest) {
 

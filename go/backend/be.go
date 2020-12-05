@@ -92,88 +92,156 @@ func main() {
 		case "ListLocations":
 			ListLocations()
 		case "GetMenu":
-			var getMenuReq structs.GetMenuRequest
-			decoder.Decode(&getMenuReq)
+			getMenuReq, ok := req.Data.(structs.GetMenuRequest)
+			if !ok {
+				fmt.Println("getMenu error")
+			}
+			// var getMenuReq structs.GetMenuRequest
+			// decoder.Decode(&getMenuReq)
 
 			GetMenu(getMenuReq)
 		case "ViewItem":
-			var viewItemReq structs.ViewItemRequest
-			decoder.Decode(&viewItemReq)
+			viewItemReq, ok := req.Data.(structs.ViewItemRequest)
+			if !ok {
+				fmt.Println("ViewItem error")
+			}
+			// var viewItemReq structs.ViewItemRequest
+			// decoder.Decode(&viewItemReq)
 
 			ViewItem(viewItemReq)
 		case "CreateOrder":
-			var req structs.CreateOrderRequest
-			decoder.Decode(&req)
+			req, ok := req.Data.(structs.CreateOrderRequest)
+			if !ok {
+				fmt.Println("CreateOrder error")
+			}
+			// var req structs.CreateOrderRequest
+			// decoder.Decode(&req)
 
 			CreateOrder(req)
 		case "SubmitOrder":
-			var order structs.UpdateOrderRequest
-			decoder.Decode(&order)
+			req, ok := req.Data.(structs.UpdateOrderRequest)
+			if !ok {
+				fmt.Println("SubmitOrder error")
+			}
+			// var order structs.UpdateOrderRequest
+			// decoder.Decode(&order)
 
-			SubmitOrder(order)
+			SubmitOrder(req)
 		case "AddItemToOrder":
-			var req structs.AddItemToOrderRequest
-			decoder.Decode(&req)
+			req, ok := req.Data.(structs.AddItemToOrderRequest)
+			if !ok {
+				fmt.Println("AddItemToOrder error")
+			}
+			// var req structs.AddItemToOrderRequest
+			// decoder.Decode(&req)
 
 			AddItemToOrder(req)
 		case "GetOrderHistory":
-			var req structs.GetOrderHistoryRequest
-			decoder.Decode(&req)
+			req, ok := req.Data.(structs.GetOrderHistoryRequest)
+			if !ok {
+				fmt.Println("GetOrderHistory error")
+			}
+			// var req structs.GetOrderHistoryRequest
+			// decoder.Decode(&req)
 
 			GetOrderHistory(req)
 		case "GetOrders":
-			var req structs.GetOrdersRequest
-			decoder.Decode(&req)
+			req, ok := req.Data.(structs.GetOrdersRequest)
+			if !ok {
+				fmt.Println("GetOrders error")
+			}
+			// var req structs.GetOrdersRequest
+			// decoder.Decode(&req)
 
 			GetOrders(req)
 		case "SelectOrder":
-			var req structs.SelectOrderRequest
-			decoder.Decode(&req)
+			req, ok := req.Data.(structs.SelectOrderRequest)
+			if !ok {
+				fmt.Println("SelectOrder error")
+			}
+			// var req structs.SelectOrderRequest
+			// decoder.Decode(&req)
 
 			SelectOrder(req)
 		case "CompleteOrder":
-			var req structs.CompelteOrderRequest
-			decoder.Decode(&req)
+			req, ok := req.Data.(structs.CompelteOrderRequest)
+			if !ok {
+				fmt.Println("CompleteOrder error")
+			}
+			// var req structs.CompelteOrderRequest
+			// decoder.Decode(&req)
 
 			CompleteOrder(req)
 		case "UpdateItem":
-			var req structs.UpdateItemRequest
-			decoder.Decode(&req)
+			req, ok := req.Data.(structs.UpdateItemRequest)
+			if !ok {
+				fmt.Println("UpdateItem error")
+			}
+			// var req structs.UpdateItemRequest
+			// decoder.Decode(&req)
 
 			UpdateItem(req)
 		case "CreateItem":
-			var req structs.CreateItemRequest
-			decoder.Decode(&req)
+			req, ok := req.Data.(structs.CreateItemRequest)
+			if !ok {
+				fmt.Println("CreateItem error")
+			}
+			// var req structs.CreateItemRequest
+			// decoder.Decode(&req)
 
 			CreateItem(req)
 		case "DeleteItem":
-			var req structs.DeleteItemRequest
-			decoder.Decode(&req)
+			req, ok := req.Data.(structs.DeleteItemRequest)
+			if !ok {
+				fmt.Println("DeleteItem error")
+			}
+			// var req structs.DeleteItemRequest
+			// decoder.Decode(&req)
 
 			DeleteItem(req)
 		case "SendMealSwipes":
-			var req structs.SendMealSwipesRequest
-			decoder.Decode(&req)
+			req, ok := req.Data.(structs.SendMealSwipesRequest)
+			if !ok {
+				fmt.Println("SendMealSwipes error")
+			}
+			// var req structs.SendMealSwipesRequest
+			// decoder.Decode(&req)
 
 			SendMealSwipes(req)
 		case "GetPaymentBalances": // dollar amounts are in cents to avoid floating point
-			var req structs.GetPaymentBalancesRequest
-			decoder.Decode(&req)
+			req, ok := req.Data.(structs.GetPaymentBalancesRequest)
+			if !ok {
+				fmt.Println("GetPaymentBalances error")
+			}
+			// var req structs.GetPaymentBalancesRequest
+			// decoder.Decode(&req)
 
 			GetPaymentBalances(req)
 		case "Login":
-			var req structs.LoginRequest
-			decoder.Decode(&req)
+			req, ok := req.Data.(structs.LoginRequest)
+			if !ok {
+				fmt.Println("Login error")
+			}
+			// var req structs.LoginRequest
+			// decoder.Decode(&req)
 
 			Login(req)
 		case "DeleteItemFromOrder":
-			var req structs.DeleteItemFromOrderRequest
-			decoder.Decode(&req)
+			req, ok := req.Data.(structs.DeleteItemFromOrderRequest)
+			if !ok {
+				fmt.Println("DeleteItemFromOrder error")
+			}
+			// var req structs.DeleteItemFromOrderRequest
+			// decoder.Decode(&req)
 
 			DeleteItemFromOrder(req)
 		case "GetCurrentUserCart":
-			var req structs.GetCartRequest
-			decoder.Decode(&req)
+			req, ok := req.Data.(structs.GetCartRequest)
+			if !ok {
+				fmt.Println("SubmitOrder error")
+			}
+			// var req structs.GetCartRequest
+			// decoder.Decode(&req)
 
 			GetCurrentUserCart(req)
 		}
@@ -466,7 +534,7 @@ func GetCurrentUserCart(req structs.GetCartRequest) {
 
 }
 
-func DeleteItemFromOrder(req structs.DeleteItemFromOrderRequest)  {
+func DeleteItemFromOrder(req structs.DeleteItemFromOrderRequest) {
 	rows, err := DB.Query("select * from OrderItem where id = ?;", req.ItemID)
 	if err != nil {
 		fmt.Println(err)
@@ -527,7 +595,6 @@ func DeleteItemFromOrder(req structs.DeleteItemFromOrderRequest)  {
 	encoder.Encode("success")
 	return
 }
-
 
 // x
 func GetOrderHistory(req structs.GetOrderHistoryRequest) {
@@ -768,10 +835,10 @@ func Login(req structs.LoginRequest) {
 	}
 	defer rows.Close()
 
-	res := structs.LoginResponse{Status: "failure", IsStudent:false, UserID: -1}
+	res := structs.LoginResponse{Status: false, IsStudent: false, UserID: -1}
 
 	for rows.Next() {
-		res.Status = "Success"
+		res.Status = true
 		err := rows.Scan(&res.UserID, &res.IsStudent)
 		if err != nil {
 			fmt.Println(err)

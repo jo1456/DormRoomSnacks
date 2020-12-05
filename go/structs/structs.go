@@ -6,6 +6,7 @@ type Status struct {
 
 type Request struct {
 	FunctionName string
+	Data         interface{}
 }
 
 type Location struct {
@@ -43,7 +44,7 @@ type OrderItem struct {
 	ID            int
 	FoodID        int
 	Customization string
-	PayWithSwipe 	bool
+	PayWithSwipe  bool
 }
 
 type OrderItemWithFood struct {
@@ -52,15 +53,15 @@ type OrderItemWithFood struct {
 }
 
 type Order struct {
-	ID 		   int
-	UserID     int
-	LocationID int
-	Item       OrderItem
-	Status     string
-	SubmitTime string
+	ID               int
+	UserID           int
+	LocationID       int
+	Item             OrderItem
+	Status           string
+	SubmitTime       string
 	LastStatusChange string
-	SwipeCost  int
-	CentCost   int
+	SwipeCost        int
+	CentCost         int
 }
 
 type OrderAndItems struct {
@@ -165,21 +166,20 @@ type UpdateOrderRequest struct {
 
 type AddItemToOrderRequest struct {
 	OrderID int
-	Item OrderItem
+	Item    OrderItem
 }
 
 type AddItemToOrderResponse struct {
-
 }
 
 type DeleteItemFromOrderRequest struct {
-	ItemID int
+	ItemID  int
 	OrderID int
 }
 
 type SendMealSwipesRequest struct {
-	FromID int
-	ToID int
+	FromID    int
+	ToID      int
 	NumSwipes int
 }
 
@@ -194,7 +194,7 @@ type GetPaymentBalancesRequest struct {
 
 type GetPaymentBalancesResponse struct {
 	MealSwipeBalance int
-	CentsBalance int
+	CentsBalance     int
 }
 
 type GetCartRequest struct {
@@ -203,11 +203,11 @@ type GetCartRequest struct {
 
 type LoginRequest struct {
 	UserNetID string
-	Password string
+	Password  string
 }
 
 type LoginResponse struct {
-	Status string
+	Status    bool
 	IsStudent bool
-	UserID int
+	UserID    int
 }
