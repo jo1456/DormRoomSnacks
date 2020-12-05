@@ -45,6 +45,7 @@ func backendComm(functionName string, req interface{}) interface{} {
 	if err != nil {
 		panic(err.Error())
 	}
+	fmt.Println("in backendcomm3")
 	return response
 }
 
@@ -77,7 +78,7 @@ func main() {
 	app.Get("/", getHomePage)
 	app.Get("/Login", getLoginPage)
 	app.Get("/Signup", getSignupPage)
-	app.Get("/loginform", loginUser)
+	app.Post("/loginform", loginUser)
 	app.Post("/signupform", registerUser)
 
 	// paths that require auth
@@ -88,11 +89,15 @@ func main() {
 	app.Post("/add-item-cart", requiresLogin, addItemOrder)
 	app.Get("/Cart", requiresLogin, getCart) // how do i do this?
 	app.Post("/checkout", requiresLogin, submitOrder)
-	app.Get("/Orders", requiresLogin, getLocationsTeller) // teller
-	app.Get("/get-orders", requiresLogin, getOrders)
+	app.Post("/sendMealSwipe", requiresLogin, sendMealSwipes)
+
+	// staff only
+	app.Get("/Orders", requiresStaffLogin, getLocationsTeller) // teller
+	app.Get("/get-orders", requiresStaffLogin, getOrders)
+	app.Get("/complete-order", completeOrder)
 
 	// turn on the app
-	app.Listen(":" + *listenPort)
+	app.Listen(":"+*listenPort, iris.WithLogLevel("debug"))
 }
 
 func requiresLogin(ctx iris.Context) {
@@ -104,10 +109,23 @@ func requiresLogin(ctx iris.Context) {
 	ctx.Next()
 }
 
+func requiresStaffLogin(ctx iris.Context) {
+	session := sess.Start(ctx)
+	auth, _ := session.GetBoolean("authenticated")
+	isStudent, _ := session.GetBoolean("isStudent")
+	if !auth || isStudent {
+		ctx.Redirect("/", iris.StatusFound)
+	}
+	ctx.Next()
+}
+
 func loginUser(ctx iris.Context) {
 	session := sess.Start(ctx)
 
 	formData := ctx.FormValues()
+	// for key, value := range formData {
+	// 	fmt.Println(key, value)
+	// }
 	userID := formData["userID"][0]
 	password := formData["password"][0]
 
@@ -117,10 +135,12 @@ func loginUser(ctx iris.Context) {
 		panic(1)
 	}
 	if !loginRes.Status {
+		fmt.Println("test2")
 		ctx.ViewData("error", true)
 		ctx.ViewData("IsLogin", true)
 		ctx.View("login.html")
 	}
+	fmt.Println("test1")
 	session.Set("authenticated", true)
 	session.Set("userID", loginRes.UserID)
 	session.Set("isStudent", loginRes.IsStudent)
@@ -145,6 +165,22 @@ func getHomePage(ctx iris.Context) {
 		ctx.ViewData("ClientName", "Guest")
 		ctx.ViewData("LoggedIn", false)
 	} else {
+		subReq1 := structs.GetOrderHistoryRequest{UserID: userID}
+		req1 := structs.Request{FunctionName: "GetOrderHistory", Data: subReq1}
+		res1, ok := backendComm(req1).([]structs.Order)
+		if !ok {
+			panic(1)
+		}
+		ctx.ViewData("OrderHistory", res1)
+
+		subReq2 := structs.GetPaymentBalancesRequest{UserID: userID}
+		req2 := structs.Request{FunctionName: "GetPaymentBalances", Data: subReq2}
+		res2, ok := backendComm(req2).(structs.GetPaymentBalancesResponse)
+		if !ok {
+			panic(1)
+		}
+		ctx.ViewData("Balances", res2)
+
 		ctx.ViewData("ClientName", userID)
 		ctx.ViewData("IsStudent", isStudent)
 		ctx.ViewData("LoggedIn", true)
@@ -162,13 +198,12 @@ func getSignupPage(ctx iris.Context) {
 	ctx.View("login.html")
 }
 
-// broken after, can't change selection
 func getLocations(ctx iris.Context) {
 	locations, ok := backendComm("ListLocations", nil).(structs.ListLocationsResponse)
 	if !ok {
 		panic(1)
 	}
-	ctx.ViewData("isLocSelec", true)
+	ctx.ViewData("IsLocSelec", true)
 	ctx.ViewData("Locations", locations.Locations)
 	ctx.View("student.html")
 }
@@ -178,14 +213,14 @@ func getLocationsTeller(ctx iris.Context) {
 	if !ok {
 		panic(1)
 	}
-	ctx.ViewData("isLocSelec", true)
+	ctx.ViewData("IsLocSelec", true)
 	ctx.ViewData("Locations", locations.Locations)
 	ctx.View("teller.html")
 }
 
 func rediGetMenu(ctx iris.Context) {
 	session := sess.Start(ctx)
-	userID, _ := session.GetInt("userID")
+	// userID, _ := session.GetInt("userID")
 
 	form := ctx.FormValues()
 	menuID := form["menuID"][0]
@@ -224,12 +259,10 @@ func getMenu(ctx iris.Context) {
 }
 
 func addItemOrder(ctx iris.Context) { // add pay with meal swipe
+	session := sess.Start(ctx)
+
 	form := ctx.FormValues()
 	itemID, err := strconv.Atoi(form["itemID"][0])
-	if err != nil {
-		panic(1)
-	}
-	orderID, err := strconv.Atoi(form["orderID"][0])
 	if err != nil {
 		panic(1)
 	}
@@ -240,21 +273,39 @@ func addItemOrder(ctx iris.Context) { // add pay with meal swipe
 	} else {
 		pwsB = false
 	}
-	someItem := structs.OrderItem{ID: orderID, FoodID: itemID, Customization: "none", PayWithSwipe: pwsB}
+	// set the ID to 0 because i think its the orderID and i don't have access to it here
+	someItem := structs.OrderItem{ID: 0, FoodID: itemID, Customization: "none", PayWithSwipe: pwsB}
 	addReq := structs.AddItemToOrderRequest{Item: someItem}
 	res, ok := backendComm("AddItemToOrder", addReq).(string)
 	if !ok {
 		panic(1)
 	}
 	if res == "failure" {
-
+		menuID, err := session.GetInt("menuID")
+		if err != nil {
+			panic(1)
+		}
+		redirectLink := fmt.Sprintf("%s%d", "/menu/", menuID)
+		ctx.Redirect(redirectLink, iris.StatusFound)
 	} else {
 
 	}
 }
 
 func getCart(ctx iris.Context) {
+	session := sess.Start(ctx)
+	userID, _ := session.GetInt("userID")
 
+	cartReq := structs.GetCartRequest{UserID: userID}
+	req := structs.Request{FunctionName: "GetCurrentUserCart", Data: cartReq}
+	res, ok := backendComm(req).(structs.OrderAndItems)
+	if !ok {
+		panic(1)
+	}
+
+	ctx.ViewData("IsCheckout", true)
+	ctx.ViewData("CartItems", res.Items) // are order item for rn
+	ctx.View("student.html")
 }
 
 func submitOrder(ctx iris.Context) {
@@ -269,16 +320,10 @@ func submitOrder(ctx iris.Context) {
 		panic(1)
 	}
 	if res == "success" {
-		ctx.Redirect("/protected/", iris.StatusFound)
+		ctx.Redirect("/", iris.StatusFound)
 	} else {
-		ctx.Redirect("/protected/Cart", iris.StatusFound)
+		ctx.Redirect("/Cart", iris.StatusFound)
 	}
-}
-
-// new get active cart order (to be added)
-
-func checkOrderStatus(ctx iris.Context) { // get order history
-
 }
 
 // for teller - only returns order IDs
@@ -305,21 +350,38 @@ func completeOrder(ctx iris.Context) {
 
 }
 
-func createItem(req structs.CreateItemRequest) {
+func createItem(ctx iris.Context) {
 
 }
 
-func updateItem(req structs.UpdateItemRequest) {
+func updateItem(ctx iris.Context) {
 
 }
 
-func deleteItem(req structs.DeleteItemRequest) {
+func deleteItem(ctx iris.Context) {
 
 }
 
 // add form on home page
-func sendMealSwipes(req structs.SendMealSwipesRequest) {
+func sendMealSwipes(ctx iris.Context) {
+	sessions := sess.Start(ctx)
+	userID, _ := sessions.GetInt("userID")
 
+	formData := ctx.FormValues()
+	toID, _ := strconv.Atoi(formData["toID"][0])
+	numberSwipes, _ := strconv.Atoi(formData["numberSwipes"][0])
+
+	subReq := structs.SendMealSwipesRequest{ToID: toID, FromID: userID, NumSwipes: numberSwipes}
+	req := structs.Request{FunctionName: "SendMealSwipes", Data: subReq}
+	res, ok := backendComm(req).(structs.SendMealSwipesResponse)
+	if !ok {
+		panic(1)
+	}
+	if res.Success {
+		fmt.Println("swipe sent sucess")
+	} else {
+		fmt.Println("swipe sent fail")
+	}
 }
 
 // add to homepage convert to string

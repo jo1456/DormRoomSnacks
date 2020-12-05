@@ -86,7 +86,7 @@ func main() {
 		var req structs.Request
 		decoder.Decode(&req)
 
-		// fmt.Println(req.FunctionName)
+		fmt.Println(req.FunctionName)
 
 		switch req.FunctionName {
 		case "ListLocations":

@@ -34,6 +34,7 @@
 
     <!-- start of menu -->
         <div>
+        {{if .IsLocSelec}}
             <h1 class="display-1">Menu</h1>
             <form class="form-inline" action="/create-order" method="POST">
                 <select class="custom-select my-1 mr-sm-2">
@@ -44,6 +45,7 @@
                 </select>
                 <button type="submit" class="btn btn-primary my-1">Create Order</button>
             </form>
+        {{end}}
         {{if .IsMenu}}
             {{range .Menu.Items}}
                 <form class="form-inline" action="/add-item-cart" method="POST">
@@ -75,8 +77,8 @@
     <div>
         <h1 class="display-1">Checkout</h1>
         {{range .CartItems}}
-            <form class="form-inline" action="/update-item-cart" method="POST">
-                <label class="my-1 mr-2" for="inlineFormCustomSelectPref">{{.ItemName}}</label>
+            <form class="form-inline" action="/remove-cart-item" method="POST">
+                <label class="my-1 mr-2" for="inlineFormCustomSelectPref">{{.FoodID}}</label>
                 <label class="sr-only" for="inlineFormInputGroupUsername2">Price</label>
                 <div class="input-group mb-2 mr-sm-2">
                     <div class="input-group-prepend">
@@ -84,14 +86,14 @@
                     </div>
                     <input type="text" class="form-control" placeholder="{{.Price}}" readonly>
                 </div>
-                <select class="custom-select my-1 mr-sm-2" id="inlineFormCustomSelectPref">
+                <!-- <select class="custom-select my-1 mr-sm-2" id="inlineFormCustomSelectPref">
                     <option selected>Quantity...</option>
                     <option value="1">1</option>
                     <option value="2">2</option>
                     <option value="3">3</option>
-                </select>
-                <input type="text" name="itemID" value="{{.ID}}" hidden>
-                <button type="submit" class="btn btn-primary my-1">Update</button>
+                </select> -->
+                <input type="text" name="foodID" value="{{.FoodID}}" hidden>
+                <button type="submit" class="btn btn-danger my-1">Remove</button>
             </form>
         {{end}}
         <form class="form-inline" action="/checkout" method="POST">
