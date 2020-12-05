@@ -165,8 +165,8 @@ type UpdateOrderRequest struct {
 }
 
 type AddItemToOrderRequest struct {
-	OrderID int
-	Item    OrderItem
+	PersonID int
+	Item OrderItem
 }
 
 type AddItemToOrderResponse struct {
