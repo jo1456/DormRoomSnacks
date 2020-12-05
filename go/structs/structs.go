@@ -6,7 +6,6 @@ type Status struct {
 
 type Request struct {
 	FunctionName string
-	Data         interface{}
 }
 
 type Location struct {
@@ -166,7 +165,7 @@ type UpdateOrderRequest struct {
 
 type AddItemToOrderRequest struct {
 	PersonID int
-	Item OrderItem
+	Item     OrderItem
 }
 
 type AddItemToOrderResponse struct {

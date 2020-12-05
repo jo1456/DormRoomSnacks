@@ -92,156 +92,88 @@ func main() {
 		case "ListLocations":
 			ListLocations()
 		case "GetMenu":
-			getMenuReq, ok := req.Data.(structs.GetMenuRequest)
-			if !ok {
-				fmt.Println("getMenu error")
-			}
-			// var getMenuReq structs.GetMenuRequest
-			// decoder.Decode(&getMenuReq)
+			var getMenuReq structs.GetMenuRequest
+			decoder.Decode(&getMenuReq)
 
 			GetMenu(getMenuReq)
 		case "ViewItem":
-			viewItemReq, ok := req.Data.(structs.ViewItemRequest)
-			if !ok {
-				fmt.Println("ViewItem error")
-			}
-			// var viewItemReq structs.ViewItemRequest
-			// decoder.Decode(&viewItemReq)
+			var viewItemReq structs.ViewItemRequest
+			decoder.Decode(&viewItemReq)
 
 			ViewItem(viewItemReq)
 		case "CreateOrder":
-			req, ok := req.Data.(structs.CreateOrderRequest)
-			if !ok {
-				fmt.Println("CreateOrder error")
-			}
-			// var req structs.CreateOrderRequest
-			// decoder.Decode(&req)
+			var req structs.CreateOrderRequest
+			decoder.Decode(&req)
 
 			CreateOrder(req)
 		case "SubmitOrder":
-			req, ok := req.Data.(structs.UpdateOrderRequest)
-			if !ok {
-				fmt.Println("SubmitOrder error")
-			}
-			// var order structs.UpdateOrderRequest
-			// decoder.Decode(&order)
+			var order structs.UpdateOrderRequest
+			decoder.Decode(&order)
 
-			SubmitOrder(req)
+			SubmitOrder(order)
 		case "AddItemToOrder":
-			req, ok := req.Data.(structs.AddItemToOrderRequest)
-			if !ok {
-				fmt.Println("AddItemToOrder error")
-			}
-			// var req structs.AddItemToOrderRequest
-			// decoder.Decode(&req)
+			var req structs.AddItemToOrderRequest
+			decoder.Decode(&req)
 
 			AddItemToOrder(req)
 		case "GetOrderHistory":
-			req, ok := req.Data.(structs.GetOrderHistoryRequest)
-			if !ok {
-				fmt.Println("GetOrderHistory error")
-			}
-			// var req structs.GetOrderHistoryRequest
-			// decoder.Decode(&req)
+			var req structs.GetOrderHistoryRequest
+			decoder.Decode(&req)
 
 			GetOrderHistory(req)
 		case "GetOrders":
-			req, ok := req.Data.(structs.GetOrdersRequest)
-			if !ok {
-				fmt.Println("GetOrders error")
-			}
-			// var req structs.GetOrdersRequest
-			// decoder.Decode(&req)
+			var req structs.GetOrdersRequest
+			decoder.Decode(&req)
 
 			GetOrders(req)
 		case "SelectOrder":
-			req, ok := req.Data.(structs.SelectOrderRequest)
-			if !ok {
-				fmt.Println("SelectOrder error")
-			}
-			// var req structs.SelectOrderRequest
-			// decoder.Decode(&req)
+			var req structs.SelectOrderRequest
+			decoder.Decode(&req)
 
 			SelectOrder(req)
 		case "CompleteOrder":
-			req, ok := req.Data.(structs.CompelteOrderRequest)
-			if !ok {
-				fmt.Println("CompleteOrder error")
-			}
-			// var req structs.CompelteOrderRequest
-			// decoder.Decode(&req)
+			var req structs.CompelteOrderRequest
+			decoder.Decode(&req)
 
 			CompleteOrder(req)
 		case "UpdateItem":
-			req, ok := req.Data.(structs.UpdateItemRequest)
-			if !ok {
-				fmt.Println("UpdateItem error")
-			}
-			// var req structs.UpdateItemRequest
-			// decoder.Decode(&req)
+			var req structs.UpdateItemRequest
+			decoder.Decode(&req)
 
 			UpdateItem(req)
 		case "CreateItem":
-			req, ok := req.Data.(structs.CreateItemRequest)
-			if !ok {
-				fmt.Println("CreateItem error")
-			}
-			// var req structs.CreateItemRequest
-			// decoder.Decode(&req)
+			var req structs.CreateItemRequest
+			decoder.Decode(&req)
 
 			CreateItem(req)
 		case "DeleteItem":
-			req, ok := req.Data.(structs.DeleteItemRequest)
-			if !ok {
-				fmt.Println("DeleteItem error")
-			}
-			// var req structs.DeleteItemRequest
-			// decoder.Decode(&req)
+			var req structs.DeleteItemRequest
+			decoder.Decode(&req)
 
 			DeleteItem(req)
 		case "SendMealSwipes":
-			req, ok := req.Data.(structs.SendMealSwipesRequest)
-			if !ok {
-				fmt.Println("SendMealSwipes error")
-			}
-			// var req structs.SendMealSwipesRequest
-			// decoder.Decode(&req)
+			var req structs.SendMealSwipesRequest
+			decoder.Decode(&req)
 
 			SendMealSwipes(req)
 		case "GetPaymentBalances": // dollar amounts are in cents to avoid floating point
-			req, ok := req.Data.(structs.GetPaymentBalancesRequest)
-			if !ok {
-				fmt.Println("GetPaymentBalances error")
-			}
-			// var req structs.GetPaymentBalancesRequest
-			// decoder.Decode(&req)
+			var req structs.GetPaymentBalancesRequest
+			decoder.Decode(&req)
 
 			GetPaymentBalances(req)
 		case "Login":
-			req, ok := req.Data.(structs.LoginRequest)
-			if !ok {
-				fmt.Println("Login error")
-			}
-			// var req structs.LoginRequest
-			// decoder.Decode(&req)
+			var req structs.LoginRequest
+			decoder.Decode(&req)
 
 			Login(req)
 		case "DeleteItemFromOrder":
-			req, ok := req.Data.(structs.DeleteItemFromOrderRequest)
-			if !ok {
-				fmt.Println("DeleteItemFromOrder error")
-			}
-			// var req structs.DeleteItemFromOrderRequest
-			// decoder.Decode(&req)
+			var req structs.DeleteItemFromOrderRequest
+			decoder.Decode(&req)
 
 			DeleteItemFromOrder(req)
 		case "GetCurrentUserCart":
-			req, ok := req.Data.(structs.GetCartRequest)
-			if !ok {
-				fmt.Println("SubmitOrder error")
-			}
-			// var req structs.GetCartRequest
-			// decoder.Decode(&req)
+			var req structs.GetCartRequest
+			decoder.Decode(&req)
 
 			GetCurrentUserCart(req)
 		}
@@ -440,7 +372,7 @@ func SubmitOrder(req structs.UpdateOrderRequest) {
 // meal swipes or with dollars. This will build up 2 accumulators in the row in the
 // orders table. These accumulators will then be used to see if the user has sufficent balance
 // to pay for their order.
-func AddItemToOrder(req structs.AddItemToOrderRequest)  {
+func AddItemToOrder(req structs.AddItemToOrderRequest) {
 
 	rows, err := DB.Query("select id from orders where personID = ? and status = 'Cart';", req.PersonID)
 	if err != nil {
