@@ -372,27 +372,46 @@ func SubmitOrder(req structs.UpdateOrderRequest) {
 // meal swipes or with dollars. This will build up 2 accumulators in the row in the
 // orders table. These accumulators will then be used to see if the user has sufficent balance
 // to pay for their order.
-func AddItemToOrder(req structs.AddItemToOrderRequest) error {
-	_, err := DB.Query("insert into OrderItem (foodID, orderID, Customization, payWithSwipe) values(?,?,?,?);", req.Item.FoodID, req.OrderID, req.Item.Customization, req.Item.PayWithSwipe)
+func AddItemToOrder(req structs.AddItemToOrderRequest)  {
+
+	rows, err := DB.Query("select id from orders where personID = ? and status = 'Cart';", req.PersonID)
 	if err != nil {
 		fmt.Println(err)
 		encoder.Encode("failure")
-		return err
+		return
 	}
+	defer rows.Close()
 
-	if req.Item.PayWithSwipe {
-		_, err := DB.Query("update Orders set swipeCost = swipeCost + 1 where id = ?;", req.OrderID)
+	var orderID int
+	for rows.Next() {
+		err := rows.Scan(&orderID)
 		if err != nil {
 			fmt.Println(err)
 			encoder.Encode("failure")
-			return err
+			return
+		}
+	}
+
+	_, err = DB.Query("insert into OrderItem (foodID, orderID, Customization, payWithSwipe) values(?,?,?,?);", req.Item.FoodID, orderID, req.Item.Customization, req.Item.PayWithSwipe)
+	if err != nil {
+		fmt.Println(err)
+		encoder.Encode("failure")
+		return
+	}
+
+	if req.Item.PayWithSwipe {
+		_, err := DB.Query("update Orders set swipeCost = swipeCost + 1 where id = ?;", orderID)
+		if err != nil {
+			fmt.Println(err)
+			encoder.Encode("failure")
+			return
 		}
 	} else {
 		rows, err := DB.Query("select price from Foods where ID = ?;", req.Item.FoodID)
 		if err != nil {
 			fmt.Println(err)
 			encoder.Encode("failure")
-			return err
+			return
 		}
 		defer rows.Close()
 
@@ -402,24 +421,23 @@ func AddItemToOrder(req structs.AddItemToOrderRequest) error {
 			if err != nil {
 				fmt.Println(err)
 				encoder.Encode("failure")
-				return err
+				return
 			}
 		}
 
-		_, err = DB.Query("update Orders set centCost = centCost + ? where id = ?;", price, req.OrderID)
+		_, err = DB.Query("update Orders set centCost = centCost + ? where id = ?;", price, orderID)
 		if err != nil {
 			fmt.Println(err)
 			encoder.Encode("failure")
-			return err
+			return
 		}
 	}
 
 	encoder.Encode("success")
-	return nil
 }
 
 func GetCurrentUserCart(req structs.GetCartRequest) {
-	var orderAndItems structs.OrderAndItems
+	var orderAndItemsWithFood structs.OrderAndItemsWithFood
 
 	rows, err := DB.Query("select * from Orders where personID = ? and status = 'Cart';", req.UserID)
 	if err != nil {
@@ -439,7 +457,7 @@ func GetCurrentUserCart(req structs.GetCartRequest) {
 		}
 	}
 
-	orderAndItems.Order = order
+	orderAndItemsWithFood.Order = order
 
 	rows, err = DB.Query("select * from OrderItem where orderID = ?;", order.ID)
 	if err != nil {
@@ -448,21 +466,35 @@ func GetCurrentUserCart(req structs.GetCartRequest) {
 	}
 	defer rows.Close()
 
-	var items []structs.OrderItem
+	var items []structs.OrderItemWithFood
 	for rows.Next() {
 		var item structs.OrderItem
+		var food structs.FoodItem
 		var lastStatusChange string
 		err := rows.Scan(&item.ID, &item.FoodID, &lastStatusChange, &item.Customization, &item.PayWithSwipe)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		items = append(items, item)
+
+		foodRows, err := DB.Query("select * from Foods where id = ?;", item.FoodID)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		defer foodRows.Close()
+		err = rows.Scan(&food.ID, &food.Name, &food.Description, &food.Cost, &food.IsAvailable, &food.NutritionFacts)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		items = append(items, structs.OrderItemWithFood{Item: item, Food: food})
 	}
 
-	orderAndItems.Items = items
+	orderAndItemsWithFood.Items = items
 
-	encoder.Encode(&orderAndItems)
+	encoder.Encode(&orderAndItemsWithFood)
 
 }
 
