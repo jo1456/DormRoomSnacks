@@ -295,8 +295,8 @@ func CreateOrder(req structs.CreateOrderRequest) {
 		return
 	}
 
-	_, err = DB.Query("insert into Orders (personID, diningHallID, status, submitTime, lastStatusChange) values(?,?,?,?,?);",
-		req.OrderRequest.UserID, req.OrderRequest.LocationID, "Cart", 0, time.Now())
+	_, err = DB.Query("insert into Orders (personID, diningHallID, status, submitTime, lastStatusChange, swipeCost, centCost) values(?,?,?,?,?,?,?);",
+		req.OrderRequest.UserID, req.OrderRequest.LocationID, "Cart", time.Now(), time.Now(), 0, 0)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -320,6 +320,7 @@ func SubmitOrder(req structs.UpdateOrderRequest) {
 	for rows.Next() {
 		err := rows.Scan(&swipeCost, &centCost, &userID)
 		if err != nil {
+			fmt.Println("here1")
 			fmt.Println(err)
 			encoder.Encode("failure")
 			return
@@ -340,6 +341,7 @@ func SubmitOrder(req structs.UpdateOrderRequest) {
 		err := rows.Scan(&swipeCost, &centCost)
 		if err != nil {
 			fmt.Println(err)
+			fmt.Println("here2")
 			encoder.Encode("failure")
 			return
 		}
@@ -351,6 +353,7 @@ func SubmitOrder(req structs.UpdateOrderRequest) {
 			centCost, swipeCost, userID)
 		if err != nil {
 			fmt.Println(err)
+			fmt.Println("here3")
 			encoder.Encode("failure")
 			return
 		}
@@ -574,6 +577,7 @@ func GetOrderHistory(req structs.GetOrderHistoryRequest) {
 		var order structs.Order
 		err := rows.Scan(&order.ID, &order.UserID, &order.LocationID, &order.Status, &order.SubmitTime, &order.LastStatusChange, &order.SwipeCost, &order.CentCost)
 		if err != nil {
+			fmt.Println("here4")
 			fmt.Println(err)
 			return
 		}

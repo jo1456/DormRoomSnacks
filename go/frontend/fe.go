@@ -64,7 +64,7 @@ func main() {
 
 	app = iris.New()
 
-	tmpl := iris.HTML("./views", ".html")
+	tmpl := iris.HTML("../views", ".html")
 	tmpl.Delims("{{", "}}")
 	app.RegisterView(tmpl)
 
