@@ -22,7 +22,7 @@
                     <a class="nav-link" href="/Menu">Menu</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="/Checkout">CheckOut</a>
+                    <a class="nav-link" href="/Cart">Cart/CheckOut</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="/logout">Logout</a>
@@ -34,18 +34,18 @@
 
     <!-- start of menu -->
         <div class="container">
-        {{if .IsLocSelec}}
             <h1 class="display-1">Menu</h1>
-            <form id="location-select" class="form-inline" action="/create-order" method="POST">
-                <select name="IDs" class="custom-select my-1 mr-sm-2" form="location-select">
-                    <option selected>Locations...</option>
-                    {{range .Locations}}
-                        <option value="{{.MenuID}}-{{.ID}}">{{.Name}}</option>
-                    {{end}}
-                </select>
-                <button type="submit" class="btn btn-primary my-1">Create Order</button>
-            </form>
-        {{end}}
+            {{if .IsLocSelec}}
+                <form id="location-select" class="form-inline" action="/create-order" method="POST">
+                    <select name="IDs" class="custom-select my-1 mr-sm-2" form="location-select">
+                        <option selected>Locations...</option>
+                        {{range .Locations}}
+                            <option value="{{.MenuID}}-{{.ID}}">{{.Name}}</option>
+                        {{end}}
+                    </select>
+                    <button type="submit" class="btn btn-primary my-1">Create Order</button>
+                </form>
+            {{end}}
         {{if .IsMenu}}
             {{range .MenuItems}}
                 <form class="form-inline" action="/add-item-cart" method="POST">

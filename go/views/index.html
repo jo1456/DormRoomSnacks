@@ -24,7 +24,7 @@
                             <a class="nav-link" href="/Menu">Menu</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/Checkout">CheckOut</a>
+                            <a class="nav-link" href="/Cart">Cart/CheckOut</a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" href="/logout">Logout</a>
@@ -34,7 +34,7 @@
                             <a class="nav-link" href="/Staff/Menu">View/Edit Menu</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/Staff/Order">Order Queue</a>
+                            <a class="nav-link" href="/Staff/Orders">Order Queue</a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" href="/logout">Logout</a>
@@ -68,6 +68,57 @@
                 <input type="text" name="numberSwipes" value="" placeholder="number of swipes">
                 <button type="submit" class="btn btn-info my-1">Send Swipe</button>
             </form>
+            <br>
+            <br>
+
+            <h3>OrderHistory</h3>
+            <hr>
+            <div class="row">
+                <div class="col-2">
+                    <strong>LocationID</strong>
+                </div>
+                <div class="col-2">
+                    <strong>SwipeCost</strong>
+                </div>
+                <div class="col-2">
+                    <strong>CentCost</strong>
+                </div>
+                <div class="col-2">
+                    <strong>SubmitTime</strong>
+                </div>
+                <div class="col-2">
+                    <strong>LastStatusChange</strong>
+                </div>
+                <div class="col-2">
+                    <strong>Status</strong>
+                </div>
+            </div>
+            {{if .OrderHistory}}
+                {{range .OrderHistory}}
+                    <div class="row">
+                        <div class="col-2">
+                            {{.LocationID}}
+                        </div>
+                        <div class="col-2">
+                            {{.SwipeCost}}
+                        </div>
+                        <div class="col-2">
+                            {{.CentCost}}
+                        </div>
+                        <div class="col-2">
+                            {{.SubmitTime}}
+                        </div>
+                        <div class="col-2">
+                            {{.LastStatusChange}}
+                        </div>
+                        <div class="col-2">
+                            {{.Status}}
+                        </div>
+                    </div>
+                {{end}}
+            {{else}}
+                <p>You have not placed an order yet</p>
+            {{end}}
         {{end}}
     </div>
     <!-- end of main body -->
