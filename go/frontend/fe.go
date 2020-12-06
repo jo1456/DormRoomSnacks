@@ -64,7 +64,7 @@ func main() {
 
 	app = iris.New()
 
-	tmpl := iris.HTML("../views", ".html")
+	tmpl := iris.HTML("./views", ".html")
 	tmpl.Delims("{{", "}}")
 	app.RegisterView(tmpl)
 
@@ -178,7 +178,9 @@ func getHomePage(ctx iris.Context) {
 		if err != nil {
 			panic(err.Error())
 		}
-		ctx.ViewData("Balances", res2)
+		ctx.ViewData("MealSwipes", res2.MealSwipeBalance)
+		cashString := fmt.Sprintf("%d.%d", res2.CentsBalance/100, res2.CentsBalance-(res2.CentsBalance/100))
+		ctx.ViewData("Cash", cashString)
 
 		ctx.ViewData("ClientName", userID)
 		ctx.ViewData("IsStudent", isStudent)
@@ -226,9 +228,6 @@ func rediGetMenu(ctx iris.Context) {
 	userID, _ := session.GetInt("userID")
 
 	form := ctx.FormValues()
-	for key, value := range form {
-		fmt.Println(key, value)
-	}
 	formRes := strings.Split(form["IDs"][0], "-")
 	menuID := formRes[0]
 	locationID, _ := strconv.Atoi(formRes[0])
@@ -249,6 +248,7 @@ func getMenu(ctx iris.Context) {
 
 	params := ctx.Params()
 	menuID, err := params.GetInt("menuID")
+	fmt.Println("menuID:", menuID)
 	session.Set("menuID", menuID)
 	if err != nil {
 		panic(1)
@@ -271,13 +271,16 @@ func addItemOrder(ctx iris.Context) { // add pay with meal swipe
 	session := sess.Start(ctx)
 
 	form := ctx.FormValues()
+	for key, value := range form {
+		fmt.Println(key, value)
+	}
 	itemID, err := strconv.Atoi(form["itemID"][0])
 	if err != nil {
 		panic(1)
 	}
 	pws := form["mealSwipe"][0]
 	pwsB := false
-	if pws == "something" {
+	if pws == "something" { // to be changed
 		pwsB = true
 	} else {
 		pwsB = false
@@ -309,7 +312,7 @@ func getCart(ctx iris.Context) {
 
 	cartReq := structs.GetCartRequest{UserID: userID}
 	backendComm("GetCurrentUserCart", cartReq)
-	var res structs.OrderAndItems
+	var res structs.OrderAndItemsWithFood
 	err := decoder.Decode(&res)
 	if err != nil {
 		panic(err.Error())
@@ -318,6 +321,15 @@ func getCart(ctx iris.Context) {
 	ctx.ViewData("IsCheckout", true)
 	ctx.ViewData("CartItems", res.Items) // are order item for rn
 	ctx.View("student.html")
+}
+
+func updateCartItem(ctx iris.Context) {
+	// formData := ctx.FormValues()
+}
+
+func deleteCartItem(ctx iris.Context) {
+	// formData := ctx.FormValues()
+
 }
 
 func submitOrder(ctx iris.Context) {

@@ -8,7 +8,7 @@
 <body>
     <!-- start of navbar -->
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
-        <a class="navbar-brand" href="#">Dorm Room Snacks</a>
+        <a class="navbar-brand" href="/">Dorm Room Snacks</a>
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavDropdown"
             aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
@@ -54,7 +54,15 @@
     <div class="container">
         <h2>Welcome back, {{.ClientName}}</h2>
         {{if .IsStudent}}
-            <p>Send Meal Swipe</p>
+            <h3>Balances</h3>
+            <hr>
+            <p>Cash: {{.Cash}}</p>
+            <p>Meal Swipes: ${{.MealSwipes}}</p>
+            <br>
+            <br>
+
+            <h3>Send Meal Swipe</h3>
+            <hr>
             <form class="form-inline" action="/sendMealSwipe" method="POST">
                 <input type="text" name="toID" value="" placeholder="toID">
                 <input type="text" name="numberSwipes" value="" placeholder="number of swipes">
