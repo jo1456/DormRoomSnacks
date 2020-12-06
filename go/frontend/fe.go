@@ -7,6 +7,7 @@ package main
 import (
 	"dormroomsnacks/structs"
 	"strconv"
+	"strings"
 
 	"github.com/kataras/iris/v12"
 	"github.com/kataras/iris/v12/sessions"
@@ -26,7 +27,7 @@ var (
 	sess                   = sessions.New(sessions.Config{Cookie: cookieNameForSessionID})
 )
 
-func backendComm(functionName string, req interface{}) interface{} {
+func backendComm(functionName string, req interface{}) {
 	subReq := structs.Request{FunctionName: functionName}
 	err := encoder.Encode(&subReq)
 	if err != nil {
@@ -39,14 +40,6 @@ func backendComm(functionName string, req interface{}) interface{} {
 			panic(err.Error())
 		}
 	}
-
-	var response interface{}
-	err = decoder.Decode(&response)
-	if err != nil {
-		panic(err.Error())
-	}
-	fmt.Println("in backendcomm3")
-	return response
 }
 
 func main() {
@@ -84,7 +77,7 @@ func main() {
 	// paths that require auth
 	app.Get("/logout", requiresLogin, logout)
 	app.Get("/Menu", requiresLogin, getLocations) // students
-	app.Get("/get-menu-student", requiresLogin, rediGetMenu)
+	app.Post("/create-order", requiresLogin, rediGetMenu)
 	app.Get("/menu/{menuID:int}", requiresLogin, getMenu)
 	app.Post("/add-item-cart", requiresLogin, addItemOrder)
 	app.Get("/Cart", requiresLogin, getCart) // how do i do this?
@@ -123,17 +116,19 @@ func loginUser(ctx iris.Context) {
 	session := sess.Start(ctx)
 
 	formData := ctx.FormValues()
-	// for key, value := range formData {
-	// 	fmt.Println(key, value)
-	// }
+
 	userID := formData["userID"][0]
 	password := formData["password"][0]
 
 	loginReq := structs.LoginRequest{UserNetID: userID, Password: password}
-	loginRes, err := backendComm("Login", loginReq).(structs.LoginResponse)
-	if !err {
-		panic(1)
+	backendComm("Login", loginReq)
+
+	var loginRes = structs.LoginResponse{}
+	err := decoder.Decode(&loginRes)
+	if err != nil {
+		panic(err.Error())
 	}
+
 	if !loginRes.Status {
 		fmt.Println("test2")
 		ctx.ViewData("error", true)
@@ -166,18 +161,22 @@ func getHomePage(ctx iris.Context) {
 		ctx.ViewData("LoggedIn", false)
 	} else {
 		subReq1 := structs.GetOrderHistoryRequest{UserID: userID}
-		req1 := structs.Request{FunctionName: "GetOrderHistory", Data: subReq1}
-		res1, ok := backendComm(req1).([]structs.Order)
-		if !ok {
-			panic(1)
+		backendComm("GetOrderHistory", subReq1)
+
+		var res1 []structs.Order
+		err := decoder.Decode(&res1)
+		if err != nil {
+			panic(err.Error())
 		}
+
 		ctx.ViewData("OrderHistory", res1)
 
 		subReq2 := structs.GetPaymentBalancesRequest{UserID: userID}
-		req2 := structs.Request{FunctionName: "GetPaymentBalances", Data: subReq2}
-		res2, ok := backendComm(req2).(structs.GetPaymentBalancesResponse)
-		if !ok {
-			panic(1)
+		backendComm("GetPaymentBalances", subReq2)
+		var res2 structs.GetPaymentBalancesResponse
+		err = decoder.Decode(&res2)
+		if err != nil {
+			panic(err.Error())
 		}
 		ctx.ViewData("Balances", res2)
 
@@ -199,32 +198,40 @@ func getSignupPage(ctx iris.Context) {
 }
 
 func getLocations(ctx iris.Context) {
-	locations, ok := backendComm("ListLocations", nil).(structs.ListLocationsResponse)
-	if !ok {
-		panic(1)
+	backendComm("ListLocations", nil)
+	var res structs.ListLocationsResponse
+	err := decoder.Decode(&res)
+	if err != nil {
+		panic(err.Error())
 	}
 	ctx.ViewData("IsLocSelec", true)
-	ctx.ViewData("Locations", locations.Locations)
+	ctx.ViewData("Locations", res.Locations)
 	ctx.View("student.html")
 }
 
 func getLocationsTeller(ctx iris.Context) {
-	locations, ok := backendComm("ListLocations", nil).(structs.ListLocationsResponse)
-	if !ok {
-		panic(1)
+	backendComm("ListLocations", nil)
+	var res structs.ListLocationsResponse
+	err := decoder.Decode(&res)
+	if err != nil {
+		panic(err.Error())
 	}
 	ctx.ViewData("IsLocSelec", true)
-	ctx.ViewData("Locations", locations.Locations)
+	ctx.ViewData("Locations", res.Locations)
 	ctx.View("teller.html")
 }
 
 func rediGetMenu(ctx iris.Context) {
 	session := sess.Start(ctx)
-	// userID, _ := session.GetInt("userID")
+	userID, _ := session.GetInt("userID")
 
 	form := ctx.FormValues()
-	menuID := form["menuID"][0]
-	locationID, _ := strconv.Atoi(form["locationID"][0])
+	for key, value := range form {
+		fmt.Println(key, value)
+	}
+	formRes := strings.Split(form["IDs"][0], "-")
+	menuID := formRes[0]
+	locationID, _ := strconv.Atoi(formRes[0])
 
 	// check if there is already an active order else create one - in backend
 	subreq := structs.Order{UserID: userID, LocationID: locationID}
@@ -248,13 +255,15 @@ func getMenu(ctx iris.Context) {
 	}
 
 	menuReq := structs.GetMenuRequest{MenuID: menuID}
-	menu, ok := backendComm("GetMenu", menuReq).(structs.Menu)
-	if !ok {
-		panic(1)
+	backendComm("GetMenu", menuReq)
+	var res structs.Menu
+	err = decoder.Decode(&res)
+	if err != nil {
+		panic(err.Error())
 	}
 
 	ctx.ViewData("isMenu", true)
-	ctx.ViewData("Menu", menu)
+	ctx.ViewData("MenuItems", res.Items)
 	ctx.View("student.html")
 }
 
@@ -276,9 +285,11 @@ func addItemOrder(ctx iris.Context) { // add pay with meal swipe
 	// set the ID to 0 because i think its the orderID and i don't have access to it here
 	someItem := structs.OrderItem{ID: 0, FoodID: itemID, Customization: "none", PayWithSwipe: pwsB}
 	addReq := structs.AddItemToOrderRequest{Item: someItem}
-	res, ok := backendComm("AddItemToOrder", addReq).(string)
-	if !ok {
-		panic(1)
+	backendComm("AddItemToOrder", addReq)
+	var res string
+	err = decoder.Decode(&res)
+	if err != nil {
+		panic(err.Error())
 	}
 	if res == "failure" {
 		menuID, err := session.GetInt("menuID")
@@ -297,10 +308,11 @@ func getCart(ctx iris.Context) {
 	userID, _ := session.GetInt("userID")
 
 	cartReq := structs.GetCartRequest{UserID: userID}
-	req := structs.Request{FunctionName: "GetCurrentUserCart", Data: cartReq}
-	res, ok := backendComm(req).(structs.OrderAndItems)
-	if !ok {
-		panic(1)
+	backendComm("GetCurrentUserCart", cartReq)
+	var res structs.OrderAndItems
+	err := decoder.Decode(&res)
+	if err != nil {
+		panic(err.Error())
 	}
 
 	ctx.ViewData("IsCheckout", true)
@@ -315,9 +327,11 @@ func submitOrder(ctx iris.Context) {
 		panic(1)
 	}
 	req := structs.UpdateOrderRequest{ID: orderID}
-	res, err2 := backendComm("SubmitOrder", req).(string)
-	if err2 {
-		panic(1)
+	backendComm("SubmitOrder", req)
+	var res string
+	err = decoder.Decode(&res)
+	if err != nil {
+		panic(err.Error())
 	}
 	if res == "success" {
 		ctx.Redirect("/", iris.StatusFound)
@@ -332,12 +346,14 @@ func getOrders(ctx iris.Context) {
 	locationID := form["locationID"][0]
 	locationIDInt, _ := strconv.Atoi(locationID)
 	ordersReq := structs.GetOrdersRequest{LocationID: locationIDInt}
-	orders, ok := backendComm("GetOrders", ordersReq).([]structs.Order)
-	if !ok {
-		panic(1)
+	backendComm("GetOrders", ordersReq)
+	var res []structs.Order
+	err := decoder.Decode(&res)
+	if err != nil {
+		panic(err.Error())
 	}
 	ctx.ViewData("isOrders", true)
-	ctx.ViewData("Orders", orders)
+	ctx.ViewData("Orders", res)
 	ctx.View("teller.html")
 }
 
@@ -372,10 +388,11 @@ func sendMealSwipes(ctx iris.Context) {
 	numberSwipes, _ := strconv.Atoi(formData["numberSwipes"][0])
 
 	subReq := structs.SendMealSwipesRequest{ToID: toID, FromID: userID, NumSwipes: numberSwipes}
-	req := structs.Request{FunctionName: "SendMealSwipes", Data: subReq}
-	res, ok := backendComm(req).(structs.SendMealSwipesResponse)
-	if !ok {
-		panic(1)
+	backendComm("SendMealSwipes", subReq)
+	var res structs.SendMealSwipesResponse
+	err := decoder.Decode(&res)
+	if err != nil {
+		panic(err.Error())
 	}
 	if res.Success {
 		fmt.Println("swipe sent sucess")

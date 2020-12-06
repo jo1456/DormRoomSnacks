@@ -36,37 +36,38 @@
         <div>
         {{if .IsLocSelec}}
             <h1 class="display-1">Menu</h1>
-            <form class="form-inline" action="/create-order" method="POST">
-                <select class="custom-select my-1 mr-sm-2">
+            <form id="location-select" class="form-inline" action="/create-order" method="POST">
+                <select name="IDs" class="custom-select my-1 mr-sm-2" form="location-select">
                     <option selected>Locations...</option>
                     {{range .Locations}}
-                        <option name="menuID" value="{{.MenuID}}">{{.Name}}</option>
+                        <option value="{{.MenuID}}-{{.ID}}">{{.Name}}</option>
                     {{end}}
                 </select>
                 <button type="submit" class="btn btn-primary my-1">Create Order</button>
             </form>
         {{end}}
         {{if .IsMenu}}
-            {{range .Menu.Items}}
+            {{range .MenuItems}}
                 <form class="form-inline" action="/add-item-cart" method="POST">
-                    <label class="my-1 mr-2" for="inlineFormCustomSelectPref">{{.ItemName}}</label>
+                    <label class="my-1 mr-2" for="inlineFormCustomSelectPref">{{.Name}}</label>
                     <label class="sr-only" for="inlineFormInputGroupUsername2">Price</label>
                     <div class="input-group mb-2 mr-sm-2">
                         <div class="input-group-prepend">
                             <div class="input-group-text">$</div>
                         </div>
-                        <input type="text" class="form-control" placeholder="{{.Price}}" readonly>
+                        <input type="text" class="form-control" placeholder="{{.Cost}}" readonly>
                     </div>
-                    <select class="custom-select my-1 mr-sm-2" id="inlineFormCustomSelectPref">
+                    <!-- <select class="custom-select my-1 mr-sm-2" id="inlineFormCustomSelectPref">
                         <option selected>Quantity...</option>
                         <option value="1">1</option>
                         <option value="2">2</option>
                         <option value="3">3</option>
-                    </select>
+                    </select> -->
                     <input type="text" name="itemID" value="{{.ID}}" hidden>
                     <input class="form-check-input" type="checkbox" name="mealSwipe" value="">
                     <button type="submit" class="btn btn-primary my-1">Add To Cart</button>
                 </form>
+                <p>{{.Description}}</p>
             {{end}}
         {{end}}
         </div>
