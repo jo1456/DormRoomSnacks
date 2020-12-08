@@ -8,7 +8,7 @@
 <body>
     <!-- start of navbar -->
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
-        <a class="navbar-brand" href="#">Dorm Room Snacks</a>
+        <a class="navbar-brand" href="/">Dorm Room Snacks</a>
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavDropdown"
             aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
@@ -24,7 +24,7 @@
                 <li class="nav-item">
                     <a class="nav-link" href="/Cart">Cart/CheckOut</a>
                 </li>
-                <li class="nav-item">
+                <li class="nav-item" style="position: absolute; right: 0;">
                     <a class="nav-link" href="/logout">Logout</a>
                 </li>
             </ul>
@@ -33,6 +33,7 @@
     <!-- end of navbar -->
 
     <!-- start of menu -->
+    {{if .IsMenu}}
         <div class="container">
             <h1 class="display-1">Menu</h1>
             {{if .IsLocSelec}}
@@ -46,7 +47,7 @@
                     <button type="submit" class="btn btn-primary my-1">Create Order</button>
                 </form>
             {{end}}
-        {{if .IsMenu}}
+        
             {{range .MenuItems}}
                 <form class="form-inline" action="/add-item-cart" method="POST">
                     <label class="my-1 mr-2" for="inlineFormCustomSelectPref">{{.Name}}</label>
@@ -69,13 +70,13 @@
                 </form>
                 <p>{{.Description}}</p>
             {{end}}
-        {{end}}
         </div>
+    {{end}}
     <!-- end of menu -->
 
     <!-- start of cart/checkout -->
     {{if .IsCheckout}}
-    <div>
+    <div class="container">
         <h1 class="display-1">Checkout</h1>
         {{range .CartItems}}
             <form class="form-inline" action="/update-cart-item" method="POST">
@@ -85,7 +86,7 @@
                     <div class="input-group-prepend">
                         <div class="input-group-text">$</div>
                     </div>
-                    <input type="text" class="form-control" placeholder="{{.Cost}}" readonly>
+                    <input type="text" class="form-control" placeholder="{{.Food.Cost}}" readonly>
                 </div>
                 <!-- <select class="custom-select my-1 mr-sm-2" id="inlineFormCustomSelectPref">
                     <option selected>Quantity...</option>
@@ -93,15 +94,15 @@
                     <option value="2">2</option>
                     <option value="3">3</option>
                 </select> -->
-                <input type="text" name="foodID" value="{{.Food.ID}}" hidden>
-                <input type="text" name="orderID" value="{{.Item.ID}}" hidden>
-                <input class="form-check-input" type="checkbox" name="mealSwipe" value="">
-                <button type="submit" class="btn btn-info my-1">Update</button>
+                <input type="text" name="orderID" value="{{$.Order.ID}}" hidden>
+                <input type="text" name="orderItemID" value="{{.Item.ID}}" hidden>
+                <input class="form-check-input" type="checkbox" name="mealSwipe" value="" readonly>
+                <!-- <button type="submit" class="btn btn-info my-1">Update</button> -->
                 <button type="submit" class="btn btn-danger my-1" formaction="/remove-cart-item">Remove</button>
             </form>
         {{end}}
         <form class="form-inline" action="/checkout" method="POST">
-            <input type="text" name="orderID" value="{{.OrderID}}" hidden>
+            <input type="text" name="orderID" value="{{.Order.ID}}" hidden>
             <button type="submit" class="btn btn-danger my-1">Checkout</button>
         </form>
     </div>

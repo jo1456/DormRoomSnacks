@@ -19,13 +19,13 @@ import (
 )
 
 var (
-	DB         *sql.DB
-	foodMutex *sync.RWMutex
-	menuMutex *sync.RWMutex
-	orderMutex *sync.RWMutex
-	personMutex *sync.RWMutex
+	DB              *sql.DB
+	foodMutex       *sync.RWMutex
+	menuMutex       *sync.RWMutex
+	orderMutex      *sync.RWMutex
+	personMutex     *sync.RWMutex
 	diningHallMutex *sync.RWMutex
-	orderItemMutex *sync.RWMutex
+	orderItemMutex  *sync.RWMutex
 )
 
 // func init() {
@@ -933,7 +933,6 @@ func GetPaymentBalances(encoder *json.Encoder, decoder *json.Decoder) {
 	}
 	defer rows.Close()
 
-
 	for rows.Next() {
 		err := rows.Scan(&res.CentsBalance, &res.MealSwipeBalance)
 		if err != nil {
@@ -981,7 +980,7 @@ func Login(encoder *json.Encoder, decoder *json.Decoder) {
 	personMutex.RUnlock()
 }
 
-func ProcessConnection(connection net.Conn){
+func ProcessConnection(connection net.Conn) {
 
 	encoder := json.NewEncoder(connection)
 	decoder := json.NewDecoder(connection)
