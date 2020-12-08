@@ -42,6 +42,7 @@ type User struct {
 type OrderItem struct {
 	ID            int
 	FoodID        int
+	OrderID				int
 	Customization string
 	PayWithSwipe  bool
 }
