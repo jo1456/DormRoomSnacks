@@ -500,16 +500,18 @@ func GetCurrentUserCart(encoder *json.Encoder, decoder *json.Decoder) {
 			return
 		}
 		defer foodRows.Close()
-		err = rows.Scan(&food.ID, &food.Name, &food.Description, &food.Cost, &food.IsAvailable, &food.NutritionFacts)
-		if err != nil {
-			fmt.Println(err)
-			orderMutex.RUnlock()
-			orderItemMutex.RUnlock()
-			foodMutex.RUnlock()
-			encoder.Encode(&orderAndItemsWithFoodFail)
-			return
+		for foodRows.Next() {
+			var menuID int
+			err = rows.Scan(&food.ID, &menuID, &food.Name, &food.Description, &food.Cost, &food.IsAvailable, &food.NutritionFacts)
+			if err != nil {
+				fmt.Println(err)
+				orderMutex.RUnlock()
+				orderItemMutex.RUnlock()
+				foodMutex.RUnlock()
+				encoder.Encode(&orderAndItemsWithFoodFail)
+				return
+			}
 		}
-
 		items = append(items, structs.OrderItemWithFood{Item: item, Food: food})
 	}
 	orderAndItemsWithFood.Items = items
