@@ -50,7 +50,7 @@
         
             {{range .MenuItems}}
                 <form class="form-inline" action="/add-item-cart" method="POST">
-                    <label class="my-1 mr-2" for="inlineFormCustomSelectPref">{{.Name}}</label>
+                    <p><strong>{{.Name}}</strong></p>
                     <label class="sr-only" for="inlineFormInputGroupUsername2">Price</label>
                     <div class="input-group mb-2 mr-sm-2">
                         <div class="input-group-prepend">
@@ -65,7 +65,8 @@
                         <option value="3">3</option>
                     </select> -->
                     <input type="text" name="itemID" value="{{.ID}}" hidden>
-                    <input class="form-check-input" type="checkbox" name="mealSwipe" value="">
+                    <label for="item{{.ID}}">Pay With Meal Swipe</label>
+                    <input id="item{{.ID}}" class="form-check-input" type="checkbox" name="mealSwipe" value="">
                     <button type="submit" class="btn btn-primary my-1">Add To Cart</button>
                 </form>
                 <p>{{.Description}}</p>

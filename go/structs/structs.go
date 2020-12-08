@@ -42,7 +42,7 @@ type User struct {
 type OrderItem struct {
 	ID            int
 	FoodID        int
-	OrderID				int
+	OrderID       int
 	Customization string
 	PayWithSwipe  bool
 }
@@ -179,7 +179,7 @@ type DeleteItemFromOrderRequest struct {
 
 type SendMealSwipesRequest struct {
 	FromID    int
-	ToID      int
+	ToID      string
 	NumSwipes int
 }
 

@@ -89,11 +89,12 @@ func main() {
 	app.Get("/Staff/Menu", requiresStaffLogin, getLocationsTeller)
 	app.Post("/get-staff-menu", requiresStaffLogin, rediGetStaffMenu)
 	app.Get("/Staff/menu/{menuID:int}", requiresStaffLogin, getStaffMenu)
-	app.Post("/create-or-update-item", requiresStaffLogin, createUpdateItem)
+	app.Post("/create-or-update-menu-item", requiresStaffLogin, createUpdateItem)
 	app.Post("/delete-menu-item", requiresStaffLogin, deleteItem)
 	app.Get("/Staff/Orders", requiresStaffLogin, getLocationsTellerOrder)
 	app.Post("/get-staff-order", requiresStaffLogin, rediGetStaffOrders)
 	app.Get("/Staff/orders/{locationID:int}", requiresStaffLogin, getOrders)
+	app.Post("/select-order", requiresStaffLogin, selectOrder)
 	app.Post("/complete-order", requiresStaffLogin, completeOrder)
 
 	// turn on the app
@@ -166,7 +167,7 @@ func getHomePage(ctx iris.Context) {
 	if userID == -1 {
 		ctx.ViewData("ClientName", "Guest")
 		ctx.ViewData("LoggedIn", false)
-	} else {
+	} else if isStudent {
 		subReq1 := structs.GetOrderHistoryRequest{UserID: userID}
 		backendComm("GetOrderHistory", subReq1)
 
@@ -189,7 +190,7 @@ func getHomePage(ctx iris.Context) {
 		cashString := fmt.Sprintf("%d.%d", res2.CentsBalance/100, res2.CentsBalance-(res2.CentsBalance/100))
 		ctx.ViewData("Cash", cashString)
 
-		req3 := structs.GetOrderHistoryRequest{}
+		req3 := structs.GetOrderHistoryRequest{UserID: userID}
 		backendComm("GetOrderHistory", req3)
 		var res3 []structs.Order
 		err = decoder.Decode(&res3)
@@ -197,11 +198,15 @@ func getHomePage(ctx iris.Context) {
 			panic(err.Error())
 		}
 		ctx.ViewData("OrderHistory", res3)
-
+		ctx.ViewData("IsStudent", isStudent)
+		ctx.ViewData("ClientName", userID)
+		ctx.ViewData("LoggedIn", true)
+	} else {
 		ctx.ViewData("ClientName", userID)
 		ctx.ViewData("IsStudent", isStudent)
 		ctx.ViewData("LoggedIn", true)
 	}
+
 	ctx.View("index.html")
 }
 
@@ -292,7 +297,10 @@ func addItemOrder(ctx iris.Context) { // add pay with meal swipe
 	}
 	// set the ID to 0 because i think its the orderID and i don't have access to it here
 	someItem := structs.OrderItem{ID: 0, FoodID: itemID, Customization: "none", PayWithSwipe: pws}
-	addReq := structs.AddItemToOrderRequest{Item: someItem}
+
+	userID, _ := session.GetInt("userID")
+
+	addReq := structs.AddItemToOrderRequest{PersonID: userID, Item: someItem}
 	backendComm("AddItemToOrder", addReq)
 	var res string
 	err = decoder.Decode(&res)
@@ -321,9 +329,10 @@ func getCart(ctx iris.Context) {
 		panic(err.Error())
 	}
 	fmt.Println(res.Order)
+	fmt.Println(res.Items)
 	ctx.ViewData("IsCheckout", true)
 	ctx.ViewData("Order", res.Order)
-	ctx.ViewData("CartItems", res.Items) // are order item for rn
+	ctx.ViewData("CartItems", res.Items)
 	ctx.View("student.html")
 }
 
@@ -439,16 +448,26 @@ func createUpdateItem(ctx iris.Context) {
 	// 	return
 	// }
 	itemID, ok := form["itemID"]
-	if ok { // check if id field exists, if no value was recieved then its a create task
+	if !ok { // check if id field exists, if no value was recieved then its a create task
 		newFood := structs.FoodItem{Name: foodName, Description: description, IsAvailable: isAvailable, NutritionFacts: nutritionFacts, Cost: price}
 		req := structs.CreateItemRequest{MenuID: menuID, NewItem: newFood}
 		backendComm("CreateItem", req)
+		var res string
+		err := decoder.Decode(&res)
+		if err != nil {
+			panic(err.Error())
+		}
 
 	} else {
 		itemIDint, _ := strconv.Atoi(itemID[0])
 		newFood := structs.FoodItem{Name: foodName, Description: description, IsAvailable: isAvailable, NutritionFacts: nutritionFacts, Cost: price}
 		req := structs.UpdateItemRequest{ItemID: itemIDint, MenuID: menuID, NewItem: newFood}
 		backendComm("UpdateItem", req)
+		var res string
+		err := decoder.Decode(&res)
+		if err != nil {
+			panic(err.Error())
+		}
 	}
 
 	redirectLink := fmt.Sprintf("%s%d", "/Staff/menu/", menuID)
@@ -468,6 +487,11 @@ func deleteItem(ctx iris.Context) {
 	itemIDint, _ := strconv.Atoi(itemID)
 	req := structs.DeleteItemRequest{MenuID: menuID, ItemID: itemIDint}
 	backendComm("DeleteItem", req)
+	var res string
+	err := decoder.Decode(&res)
+	if err != nil {
+		panic(err.Error())
+	}
 
 	redirectLink := fmt.Sprintf("%s%d", "/Staff/menu/", menuID)
 	ctx.Redirect(redirectLink, iris.StatusFound)
@@ -524,7 +548,20 @@ func getOrders(ctx iris.Context) {
 
 // get all details for a specific - returns food items - changes status - add new section for detailed food view
 func selectOrder(ctx iris.Context) {
-
+	formData := ctx.FormValues()
+	orderID, _ := strconv.Atoi(formData["orderID"][0])
+	req := structs.SelectOrderRequest{OrderID: orderID}
+	backendComm("SelectOrder", req)
+	var res structs.OrderAndItems
+	err := decoder.Decode(&res)
+	if err != nil {
+		panic(err.Error())
+	}
+	fmt.Println(res)
+	ctx.ViewData("IsSelected", true)
+	ctx.ViewData("Order", res.Order)
+	ctx.ViewData("Items", res.Items)
+	ctx.View("teller.html")
 }
 
 func completeOrder(ctx iris.Context) {
@@ -546,7 +583,7 @@ func sendMealSwipes(ctx iris.Context) {
 	userID, _ := sessions.GetInt("userID")
 
 	formData := ctx.FormValues()
-	toID, _ := strconv.Atoi(formData["toID"][0])
+	toID := formData["toID"][0]
 	numberSwipes, _ := strconv.Atoi(formData["numberSwipes"][0])
 
 	subReq := structs.SendMealSwipesRequest{ToID: toID, FromID: userID, NumSwipes: numberSwipes}
@@ -561,4 +598,6 @@ func sendMealSwipes(ctx iris.Context) {
 	} else {
 		fmt.Println("swipe sent fail")
 	}
+
+	ctx.Redirect("/", iris.StatusFound)
 }

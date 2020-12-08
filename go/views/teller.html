@@ -62,7 +62,6 @@
                                 <input name="price" type="text" class="form-control" placeholder="Price Here" required>
                             </div>
                         </div>
-                        <input type="text" name="itemID" value="{{.ID}}" hidden>
                         <input class="form-check-input" type="checkbox" name="isAvailable" value="">
                     </div>
                     Description:
@@ -114,7 +113,7 @@
                             </div>
                         </form>
                         <form class="form-inline mx-sm-2" action="/delete-menu-item" method="POST">
-                            <input type="text" name="id" value="{{.ID}}" hidden>
+                            <input type="text" name="itemID" value="{{.ID}}" hidden>
                             <button type="submit" class="btn btn-danger mb-2">Delete Item</button>
                         </form>
                         <hr>
@@ -124,7 +123,7 @@
         </div>
     <!-- end of menu -->
 
-    {{else}}
+    {{end}}
 
     <!-- start of order queue -->
         {{if .IsOrders}}
@@ -141,30 +140,37 @@
                         <button type="submit" class="btn btn-primary my-1">View Orders</button>
                     </form>
                 {{else}}
-                    <h1>Current Orders</h1>
+                    <h1>{{.Name}}</h1>
                     <div>
                         {{if .Orders}}
                             {{range .Orders}}
                                 <div class="row">
-                                    <div class="col-auto">
-                                        <p>{{.ID}}</p>
-                                        <p>{{.StudentID}}</p>
-                                        <p>{{.OrderTimeStamp}}</p>
+                                    <div class="col-3">
+                                        <strong>OrderID</strong>
                                     </div>
-                                    <div class="col-auto">
-                                        <!-- item list -->
-                                        {{range .OrderItems}}
-                                            <span>{{.ID}}</span>
-                                            <span>{{.ItemName}}</span>
-                                            <span>{{.Quantity}}</span>
-                                            <hr>
-                                        {{end}}
-                                        <!-- end item list -->
+                                    <div class="col-3">
+                                        <strong>UserID</strong>
+                                    </div>
+                                    <div class="col-3">
+                                        <strong>SubmitTime</strong>
+                                    </div>
+                                </div>
+                                <hr>
+                                <div class="row">
+                                    <div class="col-3">
+                                        <p>{{.ID}}</p>
+                                    </div>
+                                    <div class="col-3">
+                                        <p>{{.UserID}}</p>
+                                    </div>
+                                    <div class="col-3">
+                                        <p>{{.SubmitTime}}</p>
                                     </div>
                                     <div class="col-auto">
                                         <form class="form-inline mx-sm-2" action="/complete-order" method="POST">
                                             <input type="text" name="orderID" value="{{.ID}}" hidden>
-                                            <button type="submit" class="btn btn-success mb-2">Complete Task</button>
+                                            <button type="submit" class="btn btn-success mb-2" formaction="/select-order">Select Order</button>
+                                            <button type="submit" class="btn btn-success mb-2">Complete Order</button>
                                         </form>
                                     </div>
                                 </div>
@@ -195,6 +201,66 @@
             </div>
         {{end}}
     <!-- end of order queue -->
+
+    {{if .IsSelected}}
+        <div class="container">
+            <h1>Order Details</h1>
+            <div class="row">
+                <div class="col-3">
+                    <strong>OrderID</strong>
+                </div>
+                <div class="col-3">
+                    <strong>UserID</strong>
+                </div>
+                <div class="col-3">
+                    <strong>SubmitTime</strong>
+                </div>
+            </div>
+            <hr>
+            <div class="row">
+                <div class="col-3">
+                    <p>{{.Order.ID}}</p>
+                </div>
+                <div class="col-3">
+                    <p>{{.Order.UserID}}</p>
+                </div>
+                <div class="col-3">
+                    <p>{{.Order.SubmitTime}}</p>
+                </div>
+            </div>
+
+            <h3>Items</h3>
+            <div class="row">
+                <div class="col-3">
+                    <strong>ID</strong>
+                </div>
+                <div class="col-3">
+                    <strong>FoodID</strong>
+                </div>
+                <div class="col-3">
+                    <strong>Customization</strong>
+                </div>
+            </div>
+            <hr>
+            {{range .Items}}
+                <div class="row">
+                    <div class="col-3">
+                        {{.ID}}
+                    </div>
+                    <div class="col-3">
+                        {{.FoodID}}
+                    </div>
+                    <div class="col-3">
+                        {{.Customization}}
+                    </div>
+                </div>
+            {{end}}
+            <hr>
+            <form class="mx-sm-2" action="/complete-order" method="POST">
+                <input type="text" name="orderID" value="{{.ID}}" hidden>
+                <button type="submit" class="btn btn-success mb-2">Complete Order</button>
+            </form>
+        </div>
     {{end}}
 </body>
 
