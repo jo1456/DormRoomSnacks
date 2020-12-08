@@ -659,7 +659,7 @@ func GetOrders(encoder *json.Encoder, decoder *json.Decoder) {
 	var orders []structs.Order
 	var ordersFail []structs.Order
 
-	rows, err := DB.Query("select * from Orders where diningHallID = ? and status = \"submitted\";", req.LocationID)
+	rows, err := DB.Query("select * from Orders where diningHallID = ? and (status = \"submitted\" or status \"selected\");", req.LocationID)
 	if err != nil {
 		fmt.Println(err)
 		orderMutex.RUnlock()
