@@ -748,9 +748,9 @@ func SelectOrder(encoder *json.Encoder, decoder *json.Decoder) {
 		var orderID int
 		var menuID int
 		err := rows.Scan(&itemWithFood.Item.ID, &itemWithFood.Item.FoodID, &orderID,
-			 &itemWithFood.Item.Customization, &itemWithFood.Item.PayWithSwipe, &itemWithFood.Food.ID,
-			 &menuID, &itemWithFood.Food.Name, &itemWithFood.Food.Description,
-			 &itemWithFood.Food.Cost, &itemWithFood.Food.IsAvailable, &itemWithFood.Food.NutritionFacts)
+			&itemWithFood.Item.Customization, &itemWithFood.Item.PayWithSwipe, &itemWithFood.Food.ID,
+			&menuID, &itemWithFood.Food.Name, &itemWithFood.Food.Description,
+			&itemWithFood.Food.Cost, &itemWithFood.Food.IsAvailable, &itemWithFood.Food.NutritionFacts)
 		if err != nil {
 			fmt.Println(err)
 			orderMutex.Unlock()
