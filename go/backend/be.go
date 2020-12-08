@@ -718,13 +718,10 @@ func SelectOrder(encoder *json.Encoder, decoder *json.Decoder) {
 	}
 	defer rows.Close()
 
-	var order structs.Order
 	for rows.Next() {
-		var order structs.Order
 		var lastStatusChange string
-		var swipeCost int
-		var centCost int
-		err := rows.Scan(&orderAndItems.Order.ID, &orderAndItems.Order.UserID, &orderAndItems.Order.LocationID, &orderAndItems.Order.Status, &orderAndItems.Order.SubmitTime, &lastStatusChange, &swipeCost, &centCost)
+		err := rows.Scan(&orderAndItems.Order.ID, &orderAndItems.Order.UserID, &orderAndItems.Order.LocationID,
+			&orderAndItems.Order.Status, &orderAndItems.Order.SubmitTime, &lastStatusChange)
 		if err != nil {
 			fmt.Println(err)
 			orderMutex.Unlock()
@@ -734,8 +731,6 @@ func SelectOrder(encoder *json.Encoder, decoder *json.Decoder) {
 			return
 		}
 	}
-
-	orderAndItems.Order = order
 
 	rows, err = DB.Query("select * from OrderItem, Foods where OrderItem.orderID = ? and Foods.id = OrderItem.foodID;", req.OrderID)
 	if err != nil {
@@ -750,11 +745,13 @@ func SelectOrder(encoder *json.Encoder, decoder *json.Decoder) {
 
 	var items []structs.OrderItemWithFood
 	for rows.Next() {
-		var item structs.OrderItem
-		var food structs.FoodItem
+		var itemWithFood structs.OrderItemWithFood
 		var orderID int
 		var menuID int
-		err := rows.Scan(&item.ID, &item.FoodID, &orderID, &item.Customization, &item.PayWithSwipe, &food.ID, &menuID, &food.Name, &food.Description, &food.Cost, &food.IsAvailable, &food.NutritionFacts)
+		err := rows.Scan(&itemWithFood.Item.ID, &itemWithFood.Item.FoodID, &orderID,
+			&itemWithFood.Item.Customization, &itemWithFood.Item.PayWithSwipe, &itemWithFood.Food.ID,
+			&menuID, &itemWithFood.Food.Name, &itemWithFood.Food.Description,
+			&itemWithFood.Food.Cost, &itemWithFood.Food.IsAvailable, &itemWithFood.Food.NutritionFacts)
 		if err != nil {
 			fmt.Println(err)
 			orderMutex.Unlock()
@@ -763,7 +760,7 @@ func SelectOrder(encoder *json.Encoder, decoder *json.Decoder) {
 			encoder.Encode(&orderAndItemsFail)
 			return
 		}
-		items = append(items, structs.OrderItemWithFood{Item: item, Food: food})
+		items = append(items, itemWithFood)
 	}
 
 	orderAndItems.Items = items
