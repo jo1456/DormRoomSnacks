@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"sync"
 
 	// "log"
 	"net"
@@ -18,10 +19,13 @@ import (
 )
 
 var (
-	connection net.Conn
-	encoder    *json.Encoder
-	decoder    *json.Decoder
 	DB         *sql.DB
+	foodMutex *sync.RWMutex
+	menuMutex *sync.RWMutex
+	orderMutex *sync.RWMutex
+	personMutex *sync.RWMutex
+	diningHallMutex *sync.RWMutex
+	orderItemMutex *sync.RWMutex
 )
 
 // func init() {
@@ -42,6 +46,12 @@ func main() {
 	// }
 
 	// databaseURI := fmt.Sprintf("%s:%s@%s/%s", DB_USERNAME, DB_PASSWORD, DB_HOSTURL, DB_NAME)
+	foodMutex = &sync.RWMutex{}
+	menuMutex = &sync.RWMutex{}
+	orderMutex = &sync.RWMutex{}
+	personMutex = &sync.RWMutex{}
+	diningHallMutex = &sync.RWMutex{}
+	orderItemMutex = &sync.RWMutex{}
 
 	db, err := sql.Open("mysql", "b2766d1c91f7c7:0c0f617f@tcp(us-cdbr-east-02.cleardb.com)/heroku_5873df879639de6")
 	if err != nil {
@@ -56,172 +66,84 @@ func main() {
 	listenPort := flag.String("listen", "8090", "port to listen on")
 	flag.Parse()
 
-	// listen on passed port
-	listener, err := net.Listen("tcp", ":"+*listenPort)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	defer listener.Close()
-
-	// accept a connection
-	connection, err := listener.Accept()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	// assign the global encoder and decoder to the created connection
-	encoder = json.NewEncoder(connection)
-	decoder = json.NewDecoder(connection)
-
-	fmt.Println("got a connection")
-
-	// infinite loop to accept and response to requests
 	for {
+		// listen on passed port
+		listener, err := net.Listen("tcp", ":"+*listenPort)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+		defer listener.Close()
 
-		// status of operation. In case of failure fe can redirect to homepage
-		// status := Status{Success: true}
-
-		var req structs.Request
-		decoder.Decode(&req)
-
-		// fmt.Println(req.FunctionName)
-
-		switch req.FunctionName {
-		case "ListLocations":
-			ListLocations()
-		case "GetMenu":
-			var getMenuReq structs.GetMenuRequest
-			decoder.Decode(&getMenuReq)
-
-			GetMenu(getMenuReq)
-		case "ViewItem":
-			var viewItemReq structs.ViewItemRequest
-			decoder.Decode(&viewItemReq)
-
-			ViewItem(viewItemReq)
-		case "CreateOrder":
-			var req structs.CreateOrderRequest
-			decoder.Decode(&req)
-
-			CreateOrder(req)
-		case "SubmitOrder":
-			var order structs.UpdateOrderRequest
-			decoder.Decode(&order)
-
-			SubmitOrder(order)
-		case "AddItemToOrder":
-			var req structs.AddItemToOrderRequest
-			decoder.Decode(&req)
-
-			AddItemToOrder(req)
-		case "GetOrderHistory":
-			var req structs.GetOrderHistoryRequest
-			decoder.Decode(&req)
-
-			GetOrderHistory(req)
-		case "GetOrders":
-			var req structs.GetOrdersRequest
-			decoder.Decode(&req)
-
-			GetOrders(req)
-		case "SelectOrder":
-			var req structs.SelectOrderRequest
-			decoder.Decode(&req)
-
-			SelectOrder(req)
-		case "CompleteOrder":
-			var req structs.CompelteOrderRequest
-			decoder.Decode(&req)
-
-			CompleteOrder(req)
-		case "UpdateItem":
-			var req structs.UpdateItemRequest
-			decoder.Decode(&req)
-
-			UpdateItem(req)
-		case "CreateItem":
-			var req structs.CreateItemRequest
-			decoder.Decode(&req)
-
-			CreateItem(req)
-		case "DeleteItem":
-			var req structs.DeleteItemRequest
-			decoder.Decode(&req)
-
-			DeleteItem(req)
-		case "SendMealSwipes":
-			var req structs.SendMealSwipesRequest
-			decoder.Decode(&req)
-
-			SendMealSwipes(req)
-		case "GetPaymentBalances": // dollar amounts are in cents to avoid floating point
-			var req structs.GetPaymentBalancesRequest
-			decoder.Decode(&req)
-
-			GetPaymentBalances(req)
-		case "Login":
-			var req structs.LoginRequest
-			decoder.Decode(&req)
-
-			Login(req)
-		case "DeleteItemFromOrder":
-			var req structs.DeleteItemFromOrderRequest
-			decoder.Decode(&req)
-
-			DeleteItemFromOrder(req)
-		case "GetCurrentUserCart":
-			var req structs.GetCartRequest
-			decoder.Decode(&req)
-
-			GetCurrentUserCart(req)
+		for {
+			// accept a connection
+			connection, err := listener.Accept()
+			if err != nil {
+				fmt.Println(err)
+				break
+			}
+			go ProcessConnection(connection)
 		}
 	}
 }
 
 // x
-func ListLocations() {
+func ListLocations(encoder *json.Encoder, decoder *json.Decoder) {
+	diningHallMutex.RLock()
+	resp := structs.ListLocationsResponse{Locations: make([]structs.Location, 0)}
+	respFail := structs.ListLocationsResponse{Locations: make([]structs.Location, 0)}
+
 	rows, err := DB.Query("select * from DiningHalls;")
 	if err != nil {
 		fmt.Println(err)
+		encoder.Encode(&respFail)
+		diningHallMutex.RUnlock()
 		return
 	}
 	defer rows.Close()
-
-	resp := structs.ListLocationsResponse{Locations: make([]structs.Location, 0)}
 
 	for rows.Next() {
 		var location structs.Location
 		err := rows.Scan(&location.ID, &location.Name, &location.Address, &location.Phone, &location.MenuID, &location.Hours)
 		if err != nil {
 			fmt.Println(err)
+			encoder.Encode(&respFail)
+			diningHallMutex.RUnlock()
 			return
 		}
 		resp.Locations = append(resp.Locations, structs.Location{ID: location.ID, Name: location.Name, Address: location.Address, Phone: location.Phone, MenuID: location.MenuID, Hours: location.Hours})
 	}
 
 	encoder.Encode(&resp)
-	fmt.Println(resp)
-
+	diningHallMutex.RUnlock()
 }
 
 // x
-func GetMenu(req structs.GetMenuRequest) {
+func GetMenu(encoder *json.Encoder, decoder *json.Decoder) {
+	menuMutex.RLock()
+	foodMutex.RLock()
+	var req structs.GetMenuRequest
+	decoder.Decode(&req)
+	var menu structs.Menu
+	var menuFail structs.Menu
 
 	rows, err := DB.Query("select * from Menu where id = ?;", req.MenuID)
 	if err != nil {
 		fmt.Println(err)
+		menuMutex.RUnlock()
+		foodMutex.RUnlock()
+		encoder.Encode(&menuFail)
 		return
 	}
 	defer rows.Close()
-
-	var menu structs.Menu
 
 	for rows.Next() {
 		err := rows.Scan(&menu.ID, &menu.Name, &menu.LocationID)
 		if err != nil {
 			fmt.Println(err)
+			menuMutex.RUnlock()
+			foodMutex.RUnlock()
+			encoder.Encode(&menuFail)
 			return
 		}
 	}
@@ -229,6 +151,10 @@ func GetMenu(req structs.GetMenuRequest) {
 	rows, err = DB.Query("select * from Foods where menuID = ?;", req.MenuID)
 	if err != nil {
 		fmt.Println(err)
+		menuMutex.RUnlock()
+		foodMutex.RUnlock()
+		encoder.Encode(&menuFail)
+
 		return
 	}
 	defer rows.Close()
@@ -239,37 +165,48 @@ func GetMenu(req structs.GetMenuRequest) {
 		err := rows.Scan(&item.ID, &num, &item.Name, &item.Description, &item.Cost, &item.IsAvailable, &item.NutritionFacts)
 		if err != nil {
 			fmt.Println(err)
+			menuMutex.RUnlock()
+			foodMutex.RUnlock()
+			encoder.Encode(&menuFail)
 			return
 		}
 		menu.Items = append(menu.Items, item)
 	}
-
-	fmt.Println(menu)
-
 	encoder.Encode(&menu)
+	menuMutex.RUnlock()
+	foodMutex.RUnlock()
 }
 
 // x
-func ViewItem(req structs.ViewItemRequest) {
+func ViewItem(encoder *json.Encoder, decoder *json.Decoder) {
+	foodMutex.RLock()
+	var req structs.ViewItemRequest
+	decoder.Decode(&req)
+	var item structs.FoodItem
+	var itemFail structs.FoodItem
+
 	rows, err := DB.Query("select * from Foods where ID = ?;", req.ItemID)
 	if err != nil {
 		fmt.Println(err)
+		foodMutex.RUnlock()
+		encoder.Encode(&itemFail)
 		return
 	}
 	defer rows.Close()
 
-	var item structs.FoodItem
 	for rows.Next() {
 		var num int
 		err := rows.Scan(&item.ID, &num, &item.Name, &item.Description, &item.Cost, &item.IsAvailable, &item.NutritionFacts)
 		if err != nil {
 			fmt.Println(err)
+			foodMutex.RUnlock()
+			encoder.Encode(&itemFail)
 			return
 		}
 	}
 
 	encoder.Encode(&item)
-
+	foodMutex.RUnlock()
 }
 
 // ORDER FLOW
@@ -279,11 +216,15 @@ func ViewItem(req structs.ViewItemRequest) {
 
 // cart -> submitted ->
 
-func CreateOrder(req structs.CreateOrderRequest) {
+func CreateOrder(encoder *json.Encoder, decoder *json.Decoder) {
+	orderMutex.Lock()
+	var req structs.CreateOrderRequest
+	decoder.Decode(&req)
 
 	rows, err := DB.Query("SELECT personID from Orders where status = 'Cart' and personID = ?;", req.OrderRequest.UserID)
 	if err != nil {
 		fmt.Println(err)
+		orderMutex.Unlock()
 		return
 	}
 	defer rows.Close()
@@ -292,6 +233,7 @@ func CreateOrder(req structs.CreateOrderRequest) {
 	for rows.Next() {
 		rows.Scan(&id)
 		fmt.Println(err)
+		orderMutex.Unlock()
 		return
 	}
 
@@ -299,17 +241,25 @@ func CreateOrder(req structs.CreateOrderRequest) {
 		req.OrderRequest.UserID, req.OrderRequest.LocationID, "Cart", time.Now(), time.Now(), 0, 0)
 	if err != nil {
 		fmt.Println(err)
+		orderMutex.Unlock()
 		return
 	}
+	orderMutex.Unlock()
 }
 
 // x
-func SubmitOrder(req structs.UpdateOrderRequest) {
+func SubmitOrder(encoder *json.Encoder, decoder *json.Decoder) {
+	orderMutex.Lock()
+	personMutex.Lock()
+	var req structs.UpdateOrderRequest
+	decoder.Decode(&req)
 
 	rows, err := DB.Query("select swipeCost, centCost, personID from Orders where ID = ?;", req.ID)
 	if err != nil {
 		fmt.Println(err)
 		encoder.Encode("failure")
+		orderMutex.Unlock()
+		personMutex.Unlock()
 		return
 	}
 	defer rows.Close()
@@ -320,9 +270,10 @@ func SubmitOrder(req structs.UpdateOrderRequest) {
 	for rows.Next() {
 		err := rows.Scan(&swipeCost, &centCost, &userID)
 		if err != nil {
-			fmt.Println("here1")
 			fmt.Println(err)
 			encoder.Encode("failure")
+			orderMutex.Unlock()
+			personMutex.Unlock()
 			return
 		}
 	}
@@ -331,6 +282,8 @@ func SubmitOrder(req structs.UpdateOrderRequest) {
 	if err != nil {
 		fmt.Println(err)
 		encoder.Encode("failure")
+		orderMutex.Unlock()
+		personMutex.Unlock()
 		return
 	}
 	defer rows.Close()
@@ -341,8 +294,9 @@ func SubmitOrder(req structs.UpdateOrderRequest) {
 		err := rows.Scan(&swipeCost, &centCost)
 		if err != nil {
 			fmt.Println(err)
-			fmt.Println("here2")
 			encoder.Encode("failure")
+			orderMutex.Unlock()
+			personMutex.Unlock()
 			return
 		}
 	}
@@ -353,8 +307,9 @@ func SubmitOrder(req structs.UpdateOrderRequest) {
 			centCost, swipeCost, userID)
 		if err != nil {
 			fmt.Println(err)
-			fmt.Println("here3")
 			encoder.Encode("failure")
+			orderMutex.Unlock()
+			personMutex.Unlock()
 			return
 		}
 
@@ -363,24 +318,36 @@ func SubmitOrder(req structs.UpdateOrderRequest) {
 		if err != nil {
 			fmt.Println(err)
 			encoder.Encode("failure")
+			orderMutex.Unlock()
+			personMutex.Unlock()
 			return
 		}
 
 		encoder.Encode("submitted")
 	}
 	encoder.Encode("failure")
+	orderMutex.Unlock()
+	personMutex.Unlock()
 }
 
 // When Adding an item to an your must select if you will pay with the item with
 // meal swipes or with dollars. This will build up 2 accumulators in the row in the
 // orders table. These accumulators will then be used to see if the user has sufficent balance
 // to pay for their order.
-func AddItemToOrder(req structs.AddItemToOrderRequest) {
+func AddItemToOrder(encoder *json.Encoder, decoder *json.Decoder) {
+	orderMutex.Lock()
+	orderItemMutex.Lock()
+	foodMutex.RLock()
+	var req structs.AddItemToOrderRequest
+	decoder.Decode(&req)
 
 	rows, err := DB.Query("select id from orders where personID = ? and status = 'Cart';", req.PersonID)
 	if err != nil {
 		fmt.Println(err)
 		encoder.Encode("failure")
+		orderMutex.Unlock()
+		orderItemMutex.Unlock()
+		foodMutex.RUnlock()
 		return
 	}
 	defer rows.Close()
@@ -391,6 +358,9 @@ func AddItemToOrder(req structs.AddItemToOrderRequest) {
 		if err != nil {
 			fmt.Println(err)
 			encoder.Encode("failure")
+			orderMutex.Unlock()
+			orderItemMutex.Unlock()
+			foodMutex.RUnlock()
 			return
 		}
 	}
@@ -399,6 +369,9 @@ func AddItemToOrder(req structs.AddItemToOrderRequest) {
 	if err != nil {
 		fmt.Println(err)
 		encoder.Encode("failure")
+		orderMutex.Unlock()
+		orderItemMutex.Unlock()
+		foodMutex.RUnlock()
 		return
 	}
 
@@ -407,6 +380,9 @@ func AddItemToOrder(req structs.AddItemToOrderRequest) {
 		if err != nil {
 			fmt.Println(err)
 			encoder.Encode("failure")
+			orderMutex.Unlock()
+			orderItemMutex.Unlock()
+			foodMutex.RUnlock()
 			return
 		}
 	} else {
@@ -414,6 +390,9 @@ func AddItemToOrder(req structs.AddItemToOrderRequest) {
 		if err != nil {
 			fmt.Println(err)
 			encoder.Encode("failure")
+			orderMutex.Unlock()
+			orderItemMutex.Unlock()
+			foodMutex.RUnlock()
 			return
 		}
 		defer rows.Close()
@@ -424,6 +403,9 @@ func AddItemToOrder(req structs.AddItemToOrderRequest) {
 			if err != nil {
 				fmt.Println(err)
 				encoder.Encode("failure")
+				orderMutex.Unlock()
+				orderItemMutex.Unlock()
+				foodMutex.RUnlock()
 				return
 			}
 		}
@@ -432,39 +414,64 @@ func AddItemToOrder(req structs.AddItemToOrderRequest) {
 		if err != nil {
 			fmt.Println(err)
 			encoder.Encode("failure")
+			orderMutex.Unlock()
+			orderItemMutex.Unlock()
+			foodMutex.RUnlock()
 			return
 		}
 	}
-
 	encoder.Encode("success")
+	orderMutex.Unlock()
+	orderItemMutex.Unlock()
+	foodMutex.RUnlock()
 }
 
-func GetCurrentUserCart(req structs.GetCartRequest) {
+func GetCurrentUserCart(encoder *json.Encoder, decoder *json.Decoder) {
+	orderMutex.RLock()
+	orderItemMutex.RLock()
+	foodMutex.RLock()
+
+	var req structs.GetCartRequest
+	decoder.Decode(&req)
+
 	var orderAndItemsWithFood structs.OrderAndItemsWithFood
+	var orderAndItemsWithFoodFail structs.OrderAndItemsWithFood
 
 	rows, err := DB.Query("select * from Orders where personID = ? and status = 'Cart';", req.UserID)
 	if err != nil {
 		fmt.Println(err)
+		orderMutex.RUnlock()
+		orderItemMutex.RUnlock()
+		foodMutex.RUnlock()
+		encoder.Encode(&orderAndItemsWithFoodFail)
 		return
 	}
 	defer rows.Close()
 
 	var order structs.Order
 	for rows.Next() {
-		var order structs.Order
 		var lastStatusChange string
-		err := rows.Scan(&order.ID, &order.UserID, &order.LocationID, &order.Status, &order.SubmitTime, &lastStatusChange, &order.SwipeCost, &order.CentCost)
+		err := rows.Scan(&orderAndItemsWithFood.Order.ID,
+			&orderAndItemsWithFood.Order.UserID, &orderAndItemsWithFood.Order.LocationID,
+			&orderAndItemsWithFood.Order.Status, &orderAndItemsWithFood.Order.SubmitTime,
+			&lastStatusChange, &orderAndItemsWithFood.Order.SwipeCost, &orderAndItemsWithFood.Order.CentCost)
 		if err != nil {
 			fmt.Println(err)
+			orderMutex.RUnlock()
+			orderItemMutex.RUnlock()
+			foodMutex.RUnlock()
+			encoder.Encode(&orderAndItemsWithFoodFail)
 			return
 		}
 	}
 
-	orderAndItemsWithFood.Order = order
-
 	rows, err = DB.Query("select * from OrderItem where orderID = ?;", order.ID)
 	if err != nil {
 		fmt.Println(err)
+		orderMutex.RUnlock()
+		orderItemMutex.RUnlock()
+		foodMutex.RUnlock()
+		encoder.Encode(&orderAndItemsWithFoodFail)
 		return
 	}
 	defer rows.Close()
@@ -476,34 +483,57 @@ func GetCurrentUserCart(req structs.GetCartRequest) {
 		err := rows.Scan(&item.ID, &item.FoodID, &item.OrderID, &item.Customization, &item.PayWithSwipe)
 		if err != nil {
 			fmt.Println(err)
+			orderMutex.RUnlock()
+			orderItemMutex.RUnlock()
+			foodMutex.RUnlock()
+			encoder.Encode(&orderAndItemsWithFoodFail)
 			return
 		}
 
 		foodRows, err := DB.Query("select * from Foods where id = ?;", item.FoodID)
 		if err != nil {
 			fmt.Println(err)
+			orderMutex.RUnlock()
+			orderItemMutex.RUnlock()
+			foodMutex.RUnlock()
+			encoder.Encode(&orderAndItemsWithFoodFail)
 			return
 		}
 		defer foodRows.Close()
 		err = rows.Scan(&food.ID, &food.Name, &food.Description, &food.Cost, &food.IsAvailable, &food.NutritionFacts)
 		if err != nil {
 			fmt.Println(err)
+			orderMutex.RUnlock()
+			orderItemMutex.RUnlock()
+			foodMutex.RUnlock()
+			encoder.Encode(&orderAndItemsWithFoodFail)
 			return
 		}
 
 		items = append(items, structs.OrderItemWithFood{Item: item, Food: food})
 	}
-
 	orderAndItemsWithFood.Items = items
 
 	encoder.Encode(&orderAndItemsWithFood)
-
+	orderMutex.RUnlock()
+	orderItemMutex.RUnlock()
+	foodMutex.RUnlock()
 }
 
-func DeleteItemFromOrder(req structs.DeleteItemFromOrderRequest) {
+func DeleteItemFromOrder(encoder *json.Encoder, decoder *json.Decoder) {
+	orderMutex.Lock()
+	orderItemMutex.Lock()
+	foodMutex.RLock()
+	var req structs.DeleteItemFromOrderRequest
+	decoder.Decode(&req)
+
 	rows, err := DB.Query("select * from OrderItem where id = ?;", req.ItemID)
 	if err != nil {
 		fmt.Println(err)
+		encoder.Encode("failure")
+		orderMutex.Unlock()
+		orderItemMutex.Unlock()
+		foodMutex.RUnlock()
 		return
 	}
 	defer rows.Close()
@@ -514,6 +544,10 @@ func DeleteItemFromOrder(req structs.DeleteItemFromOrderRequest) {
 		err := rows.Scan(&item.ID, &item.FoodID, &lastStatusChange, &item.Customization, &item.PayWithSwipe)
 		if err != nil {
 			fmt.Println(err)
+			encoder.Encode("failure")
+			orderMutex.Unlock()
+			orderItemMutex.Unlock()
+			foodMutex.RUnlock()
 			return
 		}
 	}
@@ -521,6 +555,10 @@ func DeleteItemFromOrder(req structs.DeleteItemFromOrderRequest) {
 	_, err = DB.Query("delete from OrderItem where id = ?;", req.ItemID)
 	if err != nil {
 		fmt.Println(err)
+		encoder.Encode("failure")
+		orderMutex.Unlock()
+		orderItemMutex.Unlock()
+		foodMutex.RUnlock()
 		return
 	}
 
@@ -529,6 +567,9 @@ func DeleteItemFromOrder(req structs.DeleteItemFromOrderRequest) {
 		if err != nil {
 			fmt.Println(err)
 			encoder.Encode("failure")
+			orderMutex.Unlock()
+			orderItemMutex.Unlock()
+			foodMutex.RUnlock()
 			return
 		}
 	} else {
@@ -536,6 +577,9 @@ func DeleteItemFromOrder(req structs.DeleteItemFromOrderRequest) {
 		if err != nil {
 			fmt.Println(err)
 			encoder.Encode("failure")
+			orderMutex.Unlock()
+			orderItemMutex.Unlock()
+			foodMutex.RUnlock()
 			return
 		}
 		defer rows.Close()
@@ -546,6 +590,9 @@ func DeleteItemFromOrder(req structs.DeleteItemFromOrderRequest) {
 			if err != nil {
 				fmt.Println(err)
 				encoder.Encode("failure")
+				orderMutex.Unlock()
+				orderItemMutex.Unlock()
+				foodMutex.RUnlock()
 				return
 			}
 		}
@@ -554,76 +601,113 @@ func DeleteItemFromOrder(req structs.DeleteItemFromOrderRequest) {
 		if err != nil {
 			fmt.Println(err)
 			encoder.Encode("failure")
+			orderMutex.Unlock()
+			orderItemMutex.Unlock()
+			foodMutex.RUnlock()
 			return
 		}
 	}
 
 	encoder.Encode("success")
-	return
+	orderMutex.Unlock()
+	orderItemMutex.Unlock()
+	foodMutex.RUnlock()
 }
 
 // x
-func GetOrderHistory(req structs.GetOrderHistoryRequest) {
+func GetOrderHistory(encoder *json.Encoder, decoder *json.Decoder) {
+	orderMutex.RLock()
+	var req structs.GetOrderHistoryRequest
+	decoder.Decode(&req)
+	var orders []structs.Order
+	var ordersFail []structs.Order
+
 	rows, err := DB.Query("select * from Orders where personID = ?;", req.UserID)
 	if err != nil {
 		fmt.Println(err)
+		orderMutex.RUnlock()
+		encoder.Encode(&ordersFail)
 		return
 	}
 	defer rows.Close()
 
-	var orders []structs.Order
 	for rows.Next() {
 		var order structs.Order
 		err := rows.Scan(&order.ID, &order.UserID, &order.LocationID, &order.Status, &order.SubmitTime, &order.LastStatusChange, &order.SwipeCost, &order.CentCost)
 		if err != nil {
-			fmt.Println("here4")
 			fmt.Println(err)
+			orderMutex.RUnlock()
+			encoder.Encode(&ordersFail)
 			return
 		}
 		orders = append(orders, order)
 	}
-
 	encoder.Encode(&orders)
+	orderMutex.RUnlock()
 }
 
 // x
-func GetOrders(req structs.GetOrdersRequest) {
+func GetOrders(encoder *json.Encoder, decoder *json.Decoder) {
+	orderMutex.RLock()
+	var req structs.GetOrdersRequest
+	decoder.Decode(&req)
+	var orders []structs.Order
+	var ordersFail []structs.Order
+
 	rows, err := DB.Query("select * from Orders where diningHallID = ? and status = \"submitted\";", req.LocationID)
 	if err != nil {
 		fmt.Println(err)
+		orderMutex.RUnlock()
+		encoder.Encode(&ordersFail)
 		return
 	}
 	defer rows.Close()
 
-	var orders []structs.Order
 	for rows.Next() {
 		var order structs.Order
 		var lastStatusChange string
 		err := rows.Scan(&order.ID, &order.UserID, &order.LocationID, &order.Status, &order.SubmitTime, &lastStatusChange)
 		if err != nil {
 			fmt.Println(err)
+			orderMutex.RUnlock()
+			encoder.Encode(&ordersFail)
 			return
 		}
 		orders = append(orders, order)
 	}
-
 	encoder.Encode(&orders)
+	orderMutex.RUnlock()
 }
 
 // x
-func SelectOrder(req structs.SelectOrderRequest) {
+func SelectOrder(encoder *json.Encoder, decoder *json.Decoder) {
+	orderMutex.Lock()
+	orderItemMutex.RLock()
+	foodMutex.RLock()
+	var req structs.SelectOrderRequest
+	decoder.Decode(&req)
+
+	var orderAndItems structs.OrderAndItemsWithFood
+	var orderAndItemsFail structs.OrderAndItemsWithFood
+
 	_, err := DB.Query("update Orders set status = \"selected\", lastStatusChange = ? where id = ?;",
 		time.Now(), req.OrderID)
 	if err != nil {
 		fmt.Println(err)
+		orderMutex.Unlock()
+		orderItemMutex.RUnlock()
+		foodMutex.RUnlock()
+		encoder.Encode(&orderAndItemsFail)
 		return
 	}
-
-	var orderAndItems structs.OrderAndItemsWithFood
 
 	rows, err := DB.Query("select * from Orders where ID = ?;", req.OrderID)
 	if err != nil {
 		fmt.Println(err)
+		orderMutex.Unlock()
+		orderItemMutex.RUnlock()
+		foodMutex.RUnlock()
+		encoder.Encode(&orderAndItemsFail)
 		return
 	}
 	defer rows.Close()
@@ -635,6 +719,10 @@ func SelectOrder(req structs.SelectOrderRequest) {
 		err := rows.Scan(&order.ID, &order.UserID, &order.LocationID, &order.Status, &order.SubmitTime, &lastStatusChange)
 		if err != nil {
 			fmt.Println(err)
+			orderMutex.Unlock()
+			orderItemMutex.RUnlock()
+			foodMutex.RUnlock()
+			encoder.Encode(&orderAndItemsFail)
 			return
 		}
 	}
@@ -644,6 +732,10 @@ func SelectOrder(req structs.SelectOrderRequest) {
 	rows, err = DB.Query("select * from OrderItem, Foods where OrderItem.orderID = ? and Foods.id = OrderItem.foodID;", req.OrderID)
 	if err != nil {
 		fmt.Println(err)
+		orderMutex.Unlock()
+		orderItemMutex.RUnlock()
+		foodMutex.RUnlock()
+		encoder.Encode(&orderAndItemsFail)
 		return
 	}
 	defer rows.Close()
@@ -656,6 +748,10 @@ func SelectOrder(req structs.SelectOrderRequest) {
 		err := rows.Scan(&item.ID, &item.FoodID, &orderID, &item.Customization, &item.PayWithSwipe, &food.ID, &food.Name, &food.Description, &food.Cost, &food.IsAvailable, &food.NutritionFacts)
 		if err != nil {
 			fmt.Println(err)
+			orderMutex.Unlock()
+			orderItemMutex.RUnlock()
+			foodMutex.RUnlock()
+			encoder.Encode(&orderAndItemsFail)
 			return
 		}
 		items = append(items, structs.OrderItemWithFood{Item: item, Food: food})
@@ -664,61 +760,98 @@ func SelectOrder(req structs.SelectOrderRequest) {
 	orderAndItems.Items = items
 
 	encoder.Encode(&orderAndItems)
-
+	orderMutex.Unlock()
+	orderItemMutex.RUnlock()
+	foodMutex.RUnlock()
 }
 
 // x
-func CompleteOrder(req structs.CompelteOrderRequest) {
+func CompleteOrder(encoder *json.Encoder, decoder *json.Decoder) {
+	orderMutex.Lock()
+	var req structs.CompelteOrderRequest
+	decoder.Decode(&req)
+
 	_, err := DB.Query("update Orders set status = \"complete\", submitTime = ? where id = ?;",
 		time.Now(), req.OrderID)
 	if err != nil {
 		fmt.Println(err)
+		orderMutex.Unlock()
+		encoder.Encode("failure")
 		return
 	}
 
 	encoder.Encode("complete")
+	orderMutex.Unlock()
 }
 
 // x
-func CreateItem(req structs.CreateItemRequest) {
+func CreateItem(encoder *json.Encoder, decoder *json.Decoder) {
+	foodMutex.Lock()
+	var req structs.CreateItemRequest
+	decoder.Decode(&req)
+
 	_, err := DB.Query("insert into Foods (menuID, name, description, price, availability, nutritionFacts) values (?,?,?,?,?,?);",
 		req.MenuID, req.NewItem.Name, req.NewItem.Description, req.NewItem.Cost, req.NewItem.IsAvailable, req.NewItem.NutritionFacts)
 	if err != nil {
 		fmt.Println(err)
+		foodMutex.Unlock()
+		encoder.Encode("failure")
 		return
 	}
 
 	encoder.Encode("created")
+	foodMutex.Unlock()
 }
 
 // x
-func UpdateItem(req structs.UpdateItemRequest) {
+func UpdateItem(encoder *json.Encoder, decoder *json.Decoder) {
+	foodMutex.Lock()
+	var req structs.UpdateItemRequest
+	decoder.Decode(&req)
+
 	_, err := DB.Query("update Foods set name = ?, description = ?, price = ?, availability = ?, nutritionFacts = ? where id = ?;",
 		req.NewItem.Name, req.NewItem.Description, req.NewItem.Cost, req.NewItem.IsAvailable, req.NewItem.NutritionFacts, req.ItemID)
 	if err != nil {
 		fmt.Println(err)
+		foodMutex.Unlock()
+		encoder.Encode("failure")
 		return
 	}
-
 	encoder.Encode("updated")
+	foodMutex.Unlock()
 }
 
 // x
-func DeleteItem(req structs.DeleteItemRequest) {
+func DeleteItem(encoder *json.Encoder, decoder *json.Decoder) {
+	foodMutex.Lock()
+	var req structs.DeleteItemRequest
+	decoder.Decode(&req)
+
 	_, err := DB.Query("delete from Foods where id = ? AND menuID = ?;",
 		req.ItemID, req.MenuID)
 	if err != nil {
 		fmt.Println(err)
+		foodMutex.Unlock()
+		encoder.Encode("failure")
 		return
 	}
 
 	encoder.Encode("deleted")
+	foodMutex.Unlock()
 }
 
-func SendMealSwipes(req structs.SendMealSwipesRequest) {
+func SendMealSwipes(encoder *json.Encoder, decoder *json.Decoder) {
+	personMutex.Lock()
+	var req structs.SendMealSwipesRequest
+	decoder.Decode(&req)
+	var res structs.SendMealSwipesResponse
+	res.Success = false
+
 	rows, err := DB.Query("select mealSwipeBalance from persons where ID = ?;", req.FromID)
 	if err != nil {
 		fmt.Println(err)
+		personMutex.Unlock()
+		encoder.Encode(&res)
 		return
 	}
 	defer rows.Close()
@@ -728,15 +861,18 @@ func SendMealSwipes(req structs.SendMealSwipesRequest) {
 		err := rows.Scan(&fromMealSwipeBalance)
 		if err != nil {
 			fmt.Println(err)
+			personMutex.Unlock()
+			encoder.Encode(&res)
 			return
 		}
 	}
 
-	var res structs.SendMealSwipesResponse
 	if fromMealSwipeBalance >= req.NumSwipes && req.NumSwipes >= 0 {
 		_, err := DB.Query("update persons set mealSwipeBalance = mealSwipeBalance + ? where ID = ?;", req.NumSwipes, req.ToID)
 		if err != nil {
 			fmt.Println(err)
+			personMutex.Unlock()
+			encoder.Encode(&res)
 			return
 		}
 		defer rows.Close()
@@ -744,6 +880,8 @@ func SendMealSwipes(req structs.SendMealSwipesRequest) {
 		_, err = DB.Query("update persons set mealSwipeBalance = mealSwipeBalance - ? where ID = ?;", req.NumSwipes, req.FromID)
 		if err != nil {
 			fmt.Println(err)
+			personMutex.Unlock()
+			encoder.Encode(&res)
 			return
 		}
 		defer rows.Close()
@@ -751,6 +889,8 @@ func SendMealSwipes(req structs.SendMealSwipesRequest) {
 		rows, err = DB.Query("select mealSwipeBalance from persons where ID = ?;", req.FromID)
 		if err != nil {
 			fmt.Println(err)
+			personMutex.Unlock()
+			encoder.Encode(&res)
 			return
 		}
 		defer rows.Close()
@@ -759,6 +899,8 @@ func SendMealSwipes(req structs.SendMealSwipesRequest) {
 			err := rows.Scan(&res.Balance)
 			if err != nil {
 				fmt.Println(err)
+				personMutex.Unlock()
+				encoder.Encode(&res)
 				return
 			}
 		}
@@ -769,49 +911,131 @@ func SendMealSwipes(req structs.SendMealSwipesRequest) {
 	}
 
 	encoder.Encode(&res)
+	personMutex.Unlock()
 }
 
 // dollar amounts are in cents to avoid floating point
-func GetPaymentBalances(req structs.GetPaymentBalancesRequest) {
+func GetPaymentBalances(encoder *json.Encoder, decoder *json.Decoder) {
+	personMutex.RLock()
+	var req structs.GetPaymentBalancesRequest
+	decoder.Decode(&req)
+	var res structs.GetPaymentBalancesResponse
+	var failRes structs.GetPaymentBalancesResponse
+
 	rows, err := DB.Query("select dollarBalance, mealSwipeBalance from persons where id = ?;", req.UserID)
 	if err != nil {
 		fmt.Println(err)
+		personMutex.RUnlock()
+		encoder.Encode(&failRes)
 		return
 	}
 	defer rows.Close()
 
-	var res structs.GetPaymentBalancesResponse
 
 	for rows.Next() {
 		err := rows.Scan(&res.CentsBalance, &res.MealSwipeBalance)
 		if err != nil {
 			fmt.Println(err)
+			personMutex.RUnlock()
+			encoder.Encode(&failRes)
 			return
 		}
 	}
 
 	encoder.Encode(&res)
+	personMutex.RUnlock()
 }
 
 // x
-func Login(req structs.LoginRequest) {
+func Login(encoder *json.Encoder, decoder *json.Decoder) {
+	personMutex.RLock()
+	var req structs.LoginRequest
+	decoder.Decode(&req)
+
+	res := structs.LoginResponse{Status: false, IsStudent: false, UserID: -1}
+	failRes := structs.LoginResponse{Status: false, IsStudent: false, UserID: -1}
+
 	rows, err := DB.Query("select id, student from persons where netID = ? and password = ?;", req.UserNetID, req.Password)
 	if err != nil {
 		fmt.Println(err)
+		personMutex.RUnlock()
+		encoder.Encode(&failRes)
 		return
 	}
 	defer rows.Close()
-
-	res := structs.LoginResponse{Status: false, IsStudent: false, UserID: -1}
 
 	for rows.Next() {
 		res.Status = true
 		err := rows.Scan(&res.UserID, &res.IsStudent)
 		if err != nil {
 			fmt.Println(err)
+			personMutex.RUnlock()
+			encoder.Encode(&failRes)
 			return
 		}
 	}
 
 	encoder.Encode(&res)
+	personMutex.RUnlock()
+}
+
+func ProcessConnection(connection net.Conn){
+
+	encoder := json.NewEncoder(connection)
+	decoder := json.NewDecoder(connection)
+
+	fmt.Println("got a connection")
+
+	closed := false
+	// infinite loop to accept and response to requests
+	for !closed {
+
+		// status of operation. In case of failure fe can redirect to homepage
+		// status := Status{Success: true}
+
+		var req structs.Request
+		decoder.Decode(&req)
+
+		switch req.FunctionName {
+		case "ListLocations":
+			ListLocations(encoder, decoder)
+		case "GetMenu":
+			GetMenu(encoder, decoder)
+		case "ViewItem":
+			ViewItem(encoder, decoder)
+		case "CreateOrder":
+			CreateOrder(encoder, decoder)
+		case "SubmitOrder":
+			SubmitOrder(encoder, decoder)
+		case "AddItemToOrder":
+			AddItemToOrder(encoder, decoder)
+		case "GetOrderHistory":
+			GetOrderHistory(encoder, decoder)
+		case "GetOrders":
+			GetOrders(encoder, decoder)
+		case "SelectOrder":
+			SelectOrder(encoder, decoder)
+		case "CompleteOrder":
+			CompleteOrder(encoder, decoder)
+		case "UpdateItem":
+			UpdateItem(encoder, decoder)
+		case "CreateItem":
+			CreateItem(encoder, decoder)
+		case "DeleteItem":
+			DeleteItem(encoder, decoder)
+		case "SendMealSwipes":
+			SendMealSwipes(encoder, decoder)
+		case "GetPaymentBalances": // dollar amounts are in cents to avoid floating point
+			GetPaymentBalances(encoder, decoder)
+		case "Login":
+			Login(encoder, decoder)
+		case "DeleteItemFromOrder":
+			DeleteItemFromOrder(encoder, decoder)
+		case "GetCurrentUserCart":
+			GetCurrentUserCart(encoder, decoder)
+		case "Closed":
+			closed = true
+		}
+	}
+	connection.Close()
 }
