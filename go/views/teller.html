@@ -235,6 +235,9 @@
                     <strong>ID</strong>
                 </div>
                 <div class="col-3">
+                    <strong>Name</strong>
+                </div>
+                <div class="col-3">
                     <strong>FoodID</strong>
                 </div>
                 <div class="col-3">
@@ -245,19 +248,22 @@
             {{range .Items}}
                 <div class="row">
                     <div class="col-3">
-                        {{.ID}}
+                        {{.Item.ID}}
                     </div>
                     <div class="col-3">
-                        {{.FoodID}}
+                        {{.Food.Name}}
                     </div>
                     <div class="col-3">
-                        {{.Customization}}
+                        {{.Food.ID}}
+                    </div>
+                    <div class="col-3">
+                        {{.Item.Customization}}
                     </div>
                 </div>
             {{end}}
             <hr>
             <form class="mx-sm-2" action="/complete-order" method="POST">
-                <input type="text" name="orderID" value="{{.ID}}" hidden>
+                <input type="text" name="orderID" value="{{.Order.ID}}" hidden>
                 <button type="submit" class="btn btn-success mb-2">Complete Order</button>
             </form>
         </div>

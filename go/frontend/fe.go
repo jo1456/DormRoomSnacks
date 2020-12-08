@@ -187,7 +187,8 @@ func getHomePage(ctx iris.Context) {
 			panic(err.Error())
 		}
 		ctx.ViewData("MealSwipes", res2.MealSwipeBalance)
-		cashString := fmt.Sprintf("%d.%d", res2.CentsBalance/100, res2.CentsBalance-(res2.CentsBalance/100))
+		cents := float64(res2.CentsBalance)
+		cashString := fmt.Sprintf("%.2f", cents/100)
 		ctx.ViewData("Cash", cashString)
 
 		req3 := structs.GetOrderHistoryRequest{UserID: userID}
@@ -330,6 +331,7 @@ func getCart(ctx iris.Context) {
 	}
 	fmt.Println(res.Order)
 	fmt.Println(res.Items)
+
 	ctx.ViewData("IsCheckout", true)
 	ctx.ViewData("Order", res.Order)
 	ctx.ViewData("CartItems", res.Items)
@@ -552,7 +554,7 @@ func selectOrder(ctx iris.Context) {
 	orderID, _ := strconv.Atoi(formData["orderID"][0])
 	req := structs.SelectOrderRequest{OrderID: orderID}
 	backendComm("SelectOrder", req)
-	var res structs.OrderAndItems
+	var res structs.OrderAndItemsWithFood
 	err := decoder.Decode(&res)
 	if err != nil {
 		panic(err.Error())
@@ -573,7 +575,7 @@ func completeOrder(ctx iris.Context) {
 	req := structs.CompelteOrderRequest{OrderID: orderID}
 	backendComm("CompleteOrder", req)
 
-	redirectLink := fmt.Sprintf("%s%d", "/Staff/menu/", locationID)
+	redirectLink := fmt.Sprintf("%s%d", "/Staff/orders/", locationID)
 	ctx.Redirect(redirectLink, iris.StatusFound)
 }
 
