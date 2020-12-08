@@ -453,7 +453,7 @@ func GetCurrentUserCart(req structs.GetCartRequest) {
 	for rows.Next() {
 		var order structs.Order
 		var lastStatusChange string
-		err := rows.Scan(&order.ID, &order.UserID, &order.LocationID, &order.Status, &order.SubmitTime, &lastStatusChange)
+		err := rows.Scan(&order.ID, &order.UserID, &order.LocationID, &order.Status, &order.SubmitTime, &lastStatusChange, &order.SwipeCost, &order.CentCost)
 		if err != nil {
 			fmt.Println(err)
 			return
