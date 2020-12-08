@@ -76,19 +76,25 @@ func main() {
 
 	// paths that require auth
 	app.Get("/logout", requiresLogin, logout)
-	app.Get("/Menu", requiresLogin, getLocations) // students
+	app.Get("/Menu", requiresLogin, getLocations)
 	app.Post("/create-order", requiresLogin, rediGetMenu)
 	app.Get("/menu/{menuID:int}", requiresLogin, getMenu)
 	app.Post("/add-item-cart", requiresLogin, addItemOrder)
-	app.Get("/Cart", requiresLogin, getCart) // how do i do this?
+	app.Get("/Cart", requiresLogin, getCart)
+	app.Post("/remove-cart-item", requiresLogin, deleteCartItem)
 	app.Post("/checkout", requiresLogin, submitOrder)
 	app.Post("/sendMealSwipe", requiresLogin, sendMealSwipes)
 
 	// staff only
-	app.Get("/Staff/Menu", requiresStaffLogin, getStaffMenu)
-	app.Get("/Staff/Orders", requiresStaffLogin, getLocationsTeller) // teller
-	app.Get("/get-orders", requiresStaffLogin, getOrders)
-	app.Get("/complete-order", requiresStaffLogin, completeOrder)
+	app.Get("/Staff/Menu", requiresStaffLogin, getLocationsTeller)
+	app.Post("/get-staff-menu", requiresStaffLogin, rediGetStaffMenu)
+	app.Get("/Staff/menu/{menuID:int}", requiresStaffLogin, getStaffMenu)
+	app.Post("/create-or-update-item", requiresStaffLogin, createUpdateItem)
+	app.Post("/delete-menu-item", requiresStaffLogin, deleteItem)
+	app.Get("/Staff/Orders", requiresStaffLogin, getLocationsTellerOrder)
+	app.Post("/get-staff-order", requiresStaffLogin, rediGetStaffOrders)
+	app.Get("/Staff/orders/{locationID:int}", requiresStaffLogin, getOrders)
+	app.Post("/complete-order", requiresStaffLogin, completeOrder)
 
 	// turn on the app
 	app.Listen(":"+*listenPort, iris.WithLogLevel("debug"))
@@ -216,6 +222,7 @@ func getLocations(ctx iris.Context) {
 	if err != nil {
 		panic(err.Error())
 	}
+	ctx.ViewData("IsMenu", true)
 	ctx.ViewData("IsLocSelec", true)
 	ctx.ViewData("Locations", res.Locations)
 	ctx.View("student.html")
@@ -313,8 +320,9 @@ func getCart(ctx iris.Context) {
 	if err != nil {
 		panic(err.Error())
 	}
-
+	fmt.Println(res.Order)
 	ctx.ViewData("IsCheckout", true)
+	ctx.ViewData("Order", res.Order)
 	ctx.ViewData("CartItems", res.Items) // are order item for rn
 	ctx.View("student.html")
 }
@@ -325,10 +333,10 @@ func updateCartItem(ctx iris.Context) {
 
 func deleteCartItem(ctx iris.Context) {
 	formData := ctx.FormValues()
-	foodID, _ := strconv.Atoi(formData["foodID"][0])
+	orderItemID, _ := strconv.Atoi(formData["orderItemID"][0])
 	orderID, _ := strconv.Atoi(formData["orderID"][0])
 
-	req := structs.DeleteItemFromOrderRequest{ItemID: foodID, OrderID: orderID}
+	req := structs.DeleteItemFromOrderRequest{ItemID: orderItemID, OrderID: orderID}
 	backendComm("DeleteItemFromOrder", req)
 	var res string
 	err := decoder.Decode(&res)
@@ -355,7 +363,8 @@ func submitOrder(ctx iris.Context) {
 	if err != nil {
 		panic(err.Error())
 	}
-	if res == "success" {
+	fmt.Println(res)
+	if res == "submitted" {
 		ctx.Redirect("/", iris.StatusFound)
 	} else {
 		ctx.Redirect("/Cart", iris.StatusFound)
@@ -369,44 +378,146 @@ func getLocationsTeller(ctx iris.Context) {
 	if err != nil {
 		panic(err.Error())
 	}
+	ctx.ViewData("IsMenu", true)
 	ctx.ViewData("IsLocSelec", true)
 	ctx.ViewData("Locations", res.Locations)
 	ctx.View("teller.html")
 }
 
+func rediGetStaffMenu(ctx iris.Context) {
+	session := sess.Start(ctx)
+
+	form := ctx.FormValues()
+	formRes := strings.Split(form["IDs"][0], "-")
+	menuID := formRes[0]
+
+	session.Set("menuID", menuID)
+
+	redirectLink := fmt.Sprintf("%s%s", "/Staff/menu/", menuID)
+	ctx.Redirect(redirectLink, iris.StatusFound)
+}
+
 func getStaffMenu(ctx iris.Context) {
+	session := sess.Start(ctx)
 
+	params := ctx.Params()
+	menuID, err := params.GetInt("menuID")
+	session.Set("menuID", menuID)
+	if err != nil {
+		panic(1)
+	}
+
+	menuReq := structs.GetMenuRequest{MenuID: menuID}
+	backendComm("GetMenu", menuReq)
+	var res structs.Menu
+	err = decoder.Decode(&res)
+	if err != nil {
+		panic(err.Error())
+	}
+	fmt.Println(res)
+
+	ctx.ViewData("IsMenu", true)
+	ctx.ViewData("MenuItems", res.Items)
+	ctx.View("teller.html")
 }
 
-func completeOrder(ctx iris.Context) {
+func createUpdateItem(ctx iris.Context) {
+	session := sess.Start(ctx)
+	menuID, _ := session.GetInt("menuID")
 
-}
+	form := ctx.FormValues()
+	foodName := form["foodName"][0] // get value of form input with name "taskname"
+	price, _ := strconv.Atoi(form["price"][0])
+	description := form["description"][0]
+	isAvailable := false
+	if _, ok := form["isAvailable"]; ok {
+		isAvailable = true
+	}
+	nutritionFacts := form["nutritionFacts"][0]
+	// if incomingTask == "" { // check if got a task name, empty task name in update taskname does nothing! theres a delete button right there!
+	// 	ctx.Redirect("/", iris.StatusFound) // reload page for the client
+	// 	return
+	// }
+	itemID, ok := form["itemID"]
+	if ok { // check if id field exists, if no value was recieved then its a create task
+		newFood := structs.FoodItem{Name: foodName, Description: description, IsAvailable: isAvailable, NutritionFacts: nutritionFacts, Cost: price}
+		req := structs.CreateItemRequest{MenuID: menuID, NewItem: newFood}
+		backendComm("CreateItem", req)
 
-func createItem(ctx iris.Context) {
+	} else {
+		itemIDint, _ := strconv.Atoi(itemID[0])
+		newFood := structs.FoodItem{Name: foodName, Description: description, IsAvailable: isAvailable, NutritionFacts: nutritionFacts, Cost: price}
+		req := structs.UpdateItemRequest{ItemID: itemIDint, MenuID: menuID, NewItem: newFood}
+		backendComm("UpdateItem", req)
+	}
 
-}
-
-func updateItem(ctx iris.Context) {
-
+	redirectLink := fmt.Sprintf("%s%d", "/Staff/menu/", menuID)
+	ctx.Redirect(redirectLink, iris.StatusFound)
 }
 
 func deleteItem(ctx iris.Context) {
+	session := sess.Start(ctx)
+	menuID, _ := session.GetInt("menuID")
 
+	form := ctx.FormValues()
+	itemID := form["itemID"][0] // attempt to retreive the id of the task in the case its an update POST
+	if itemID == "" {           // if no ID was specifed then undefined error, this does not happen unless client edits the HTML
+		ctx.Redirect("/", iris.StatusFound) // reload page for the client
+		return
+	}
+	itemIDint, _ := strconv.Atoi(itemID)
+	req := structs.DeleteItemRequest{MenuID: menuID, ItemID: itemIDint}
+	backendComm("DeleteItem", req)
+
+	redirectLink := fmt.Sprintf("%s%d", "/Staff/menu/", menuID)
+	ctx.Redirect(redirectLink, iris.StatusFound)
 }
 
-// for teller - only returns order IDs
-func getOrders(ctx iris.Context) {
-	form := ctx.FormValues()
-	locationID := form["locationID"][0]
-	locationIDInt, _ := strconv.Atoi(locationID)
-	ordersReq := structs.GetOrdersRequest{LocationID: locationIDInt}
-	backendComm("GetOrders", ordersReq)
-	var res []structs.Order
+func getLocationsTellerOrder(ctx iris.Context) {
+	backendComm("ListLocations", nil)
+	var res structs.ListLocationsResponse
 	err := decoder.Decode(&res)
 	if err != nil {
 		panic(err.Error())
 	}
-	ctx.ViewData("isOrders", true)
+	ctx.ViewData("IsOrders", true)
+	ctx.ViewData("IsLocSelec", true)
+	ctx.ViewData("Locations", res.Locations)
+	ctx.View("teller.html")
+}
+
+func rediGetStaffOrders(ctx iris.Context) {
+	session := sess.Start(ctx)
+
+	form := ctx.FormValues()
+	formRes := strings.Split(form["IDs"][0], "-")
+	locationID := formRes[1]
+
+	session.Set("locationID", locationID)
+
+	redirectLink := fmt.Sprintf("%s%s", "/Staff/orders/", locationID)
+	ctx.Redirect(redirectLink, iris.StatusFound)
+}
+
+// for teller - only returns order IDs
+func getOrders(ctx iris.Context) {
+	session := sess.Start(ctx)
+
+	params := ctx.Params()
+	locationID, err := params.GetInt("locationID")
+	session.Set("locationID", locationID)
+	if err != nil {
+		panic(1)
+	}
+
+	ordersReq := structs.GetOrdersRequest{LocationID: locationID}
+	backendComm("GetOrders", ordersReq)
+	var res []structs.Order
+	err = decoder.Decode(&res)
+	if err != nil {
+		panic(err.Error())
+	}
+	ctx.ViewData("IsOrders", true)
 	ctx.ViewData("Orders", res)
 	ctx.View("teller.html")
 }
@@ -414,6 +525,19 @@ func getOrders(ctx iris.Context) {
 // get all details for a specific - returns food items - changes status - add new section for detailed food view
 func selectOrder(ctx iris.Context) {
 
+}
+
+func completeOrder(ctx iris.Context) {
+	session := sess.Start(ctx)
+	locationID, _ := session.GetInt("locationID")
+
+	formData := ctx.FormValues()
+	orderID, _ := strconv.Atoi(formData["orderID"][0])
+	req := structs.CompelteOrderRequest{OrderID: orderID}
+	backendComm("CompleteOrder", req)
+
+	redirectLink := fmt.Sprintf("%s%d", "/Staff/menu/", locationID)
+	ctx.Redirect(redirectLink, iris.StatusFound)
 }
 
 // add form on home page
