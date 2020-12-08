@@ -291,7 +291,7 @@ func SubmitOrder(encoder *json.Encoder, decoder *json.Decoder) {
 	var dollarBalance int
 	var mealSwipeBalance int
 	for rows.Next() {
-		err := rows.Scan(&dollarBalance, &mealSwipeBalance)
+		err := rows.Scan(&swipeCost, &centCost)
 		if err != nil {
 			fmt.Println(err)
 			encoder.Encode("failure")
@@ -303,7 +303,7 @@ func SubmitOrder(encoder *json.Encoder, decoder *json.Decoder) {
 
 	if dollarBalance > centCost && mealSwipeBalance > swipeCost {
 
-		_, err := DB.Query("update persons set dollarBalance = dollarBalance - ?, mealSwipeBalance = mealSwipeBalance - ? where id = ?;",
+		_, err := DB.Query("update Personds set dollarBalance = dollarBalance - ?, mealSwipeBalance = mealSwipeBalance - ? where id = ?;",
 			centCost, swipeCost, userID)
 		if err != nil {
 			fmt.Println(err)
@@ -326,11 +326,11 @@ func SubmitOrder(encoder *json.Encoder, decoder *json.Decoder) {
 		encoder.Encode("submitted")
 		orderMutex.Unlock()
 		personMutex.Unlock()
-	} else {
-		encoder.Encode("failure")
-		orderMutex.Unlock()
-		personMutex.Unlock()
 	}
+
+	encoder.Encode("failure")
+	orderMutex.Unlock()
+	personMutex.Unlock()
 }
 
 // When Adding an item to an your must select if you will pay with the item with
@@ -451,6 +451,7 @@ func GetCurrentUserCart(encoder *json.Encoder, decoder *json.Decoder) {
 	}
 	defer rows.Close()
 
+	var order structs.Order
 	for rows.Next() {
 		var lastStatusChange string
 		err := rows.Scan(&orderAndItemsWithFood.Order.ID,
@@ -467,7 +468,7 @@ func GetCurrentUserCart(encoder *json.Encoder, decoder *json.Decoder) {
 		}
 	}
 
-	rows, err = DB.Query("select * from OrderItem where orderID = ?;", orderAndItemsWithFood.Order.ID)
+	rows, err = DB.Query("select * from OrderItem where orderID = ?;", order.ID)
 	if err != nil {
 		fmt.Println(err)
 		orderMutex.RUnlock()
@@ -504,7 +505,7 @@ func GetCurrentUserCart(encoder *json.Encoder, decoder *json.Decoder) {
 		defer foodRows.Close()
 		for foodRows.Next() {
 			var menuID int
-			err = foodRows.Scan(&food.ID, &menuID, &food.Name, &food.Description, &food.Cost, &food.IsAvailable, &food.NutritionFacts)
+			err = rows.Scan(&food.ID, &menuID, &food.Name, &food.Description, &food.Cost, &food.IsAvailable, &food.NutritionFacts)
 			if err != nil {
 				fmt.Println(err)
 				orderMutex.RUnlock()
@@ -658,7 +659,7 @@ func GetOrders(encoder *json.Encoder, decoder *json.Decoder) {
 	var orders []structs.Order
 	var ordersFail []structs.Order
 
-	rows, err := DB.Query("select * from Orders where diningHallID = ? and (status = \"submitted\" or status = \"selected\");", req.LocationID)
+	rows, err := DB.Query("select * from Orders where diningHallID = ? and status = \"submitted\";", req.LocationID)
 	if err != nil {
 		fmt.Println(err)
 		orderMutex.RUnlock()
@@ -670,9 +671,7 @@ func GetOrders(encoder *json.Encoder, decoder *json.Decoder) {
 	for rows.Next() {
 		var order structs.Order
 		var lastStatusChange string
-		var swipeCost int
-		var centCost int
-		err := rows.Scan(&order.ID, &order.UserID, &order.LocationID, &order.Status, &order.SubmitTime, &lastStatusChange, &swipeCost, &centCost)
+		err := rows.Scan(&order.ID, &order.UserID, &order.LocationID, &order.Status, &order.SubmitTime, &lastStatusChange)
 		if err != nil {
 			fmt.Println(err)
 			orderMutex.RUnlock()
@@ -718,13 +717,10 @@ func SelectOrder(encoder *json.Encoder, decoder *json.Decoder) {
 	}
 	defer rows.Close()
 
-	var order structs.Order
 	for rows.Next() {
-		var order structs.Order
 		var lastStatusChange string
-		var swipeCost int
-		var centCost int
-		err := rows.Scan(&orderAndItems.Order.ID, &orderAndItems.Order.UserID, &orderAndItems.Order.LocationID, &orderAndItems.Order.Status, &orderAndItems.Order.SubmitTime, &lastStatusChange, &swipeCost, &centCost)
+		err := rows.Scan(&orderAndItems.Order.ID, &orderAndItems.Order.UserID, &orderAndItems.Order.LocationID,
+			&orderAndItems.Order.Status, &orderAndItems.Order.SubmitTime, &lastStatusChange)
 		if err != nil {
 			fmt.Println(err)
 			orderMutex.Unlock()
@@ -734,8 +730,6 @@ func SelectOrder(encoder *json.Encoder, decoder *json.Decoder) {
 			return
 		}
 	}
-
-	orderAndItems.Order = order
 
 	rows, err = DB.Query("select * from OrderItem, Foods where OrderItem.orderID = ? and Foods.id = OrderItem.foodID;", req.OrderID)
 	if err != nil {
@@ -750,11 +744,13 @@ func SelectOrder(encoder *json.Encoder, decoder *json.Decoder) {
 
 	var items []structs.OrderItemWithFood
 	for rows.Next() {
-		var item structs.OrderItem
-		var food structs.FoodItem
+		var itemWithFood structs.OrderItemWithFood
 		var orderID int
 		var menuID int
-		err := rows.Scan(&item.ID, &item.FoodID, &orderID, &item.Customization, &item.PayWithSwipe, &food.ID, &menuID, &food.Name, &food.Description, &food.Cost, &food.IsAvailable, &food.NutritionFacts)
+		err := rows.Scan(&itemWithFood.Item.ID, &itemWithFood.Item.FoodID, &orderID,
+			 &itemWithFood.Item.Customization, &itemWithFood.Item.PayWithSwipe, &itemWithFood.Food.ID,
+			 &menuID, &itemWithFood.Food.Name, &itemWithFood.Food.Description,
+			 &itemWithFood.Food.Cost, &itemWithFood.Food.IsAvailable, &itemWithFood.Food.NutritionFacts)
 		if err != nil {
 			fmt.Println(err)
 			orderMutex.Unlock()
@@ -763,7 +759,7 @@ func SelectOrder(encoder *json.Encoder, decoder *json.Decoder) {
 			encoder.Encode(&orderAndItemsFail)
 			return
 		}
-		items = append(items, structs.OrderItemWithFood{Item: item, Food: food})
+		items = append(items, itemWithFood)
 	}
 
 	orderAndItems.Items = items
@@ -856,7 +852,7 @@ func SendMealSwipes(encoder *json.Encoder, decoder *json.Decoder) {
 	var res structs.SendMealSwipesResponse
 	res.Success = false
 
-	rows, err := DB.Query("select mealSwipeBalance from persons where ID = ?;", req.FromID)
+	rows, err := DB.Query("select mealSwipeBalance from persons where netID = ?;", req.FromID)
 	if err != nil {
 		fmt.Println(err)
 		personMutex.Unlock()
@@ -877,7 +873,7 @@ func SendMealSwipes(encoder *json.Encoder, decoder *json.Decoder) {
 	}
 
 	if fromMealSwipeBalance >= req.NumSwipes && req.NumSwipes >= 0 {
-		_, err := DB.Query("update persons set mealSwipeBalance = mealSwipeBalance + ? where netID = ?;", req.NumSwipes, req.ToID)
+		_, err := DB.Query("update persons set mealSwipeBalance = mealSwipeBalance + ? where ID = ?;", req.NumSwipes, req.ToID)
 		if err != nil {
 			fmt.Println(err)
 			personMutex.Unlock()
