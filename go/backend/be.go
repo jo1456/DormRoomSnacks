@@ -719,8 +719,10 @@ func SelectOrder(encoder *json.Encoder, decoder *json.Decoder) {
 
 	for rows.Next() {
 		var lastStatusChange string
+		var swipeCost int
+		var centCost int
 		err := rows.Scan(&orderAndItems.Order.ID, &orderAndItems.Order.UserID, &orderAndItems.Order.LocationID,
-			&orderAndItems.Order.Status, &orderAndItems.Order.SubmitTime, &lastStatusChange)
+			&orderAndItems.Order.Status, &orderAndItems.Order.SubmitTime, &lastStatusChange, &swipeCost, &centCost)
 		if err != nil {
 			fmt.Println(err)
 			orderMutex.Unlock()
