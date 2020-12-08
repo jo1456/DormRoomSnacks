@@ -19,13 +19,13 @@ import (
 )
 
 var (
-	DB         *sql.DB
-	foodMutex *sync.RWMutex
-	menuMutex *sync.RWMutex
-	orderMutex *sync.RWMutex
-	personMutex *sync.RWMutex
+	DB              *sql.DB
+	foodMutex       *sync.RWMutex
+	menuMutex       *sync.RWMutex
+	orderMutex      *sync.RWMutex
+	personMutex     *sync.RWMutex
 	diningHallMutex *sync.RWMutex
-	orderItemMutex *sync.RWMutex
+	orderItemMutex  *sync.RWMutex
 )
 
 // func init() {
@@ -500,7 +500,6 @@ func GetCurrentUserCart(encoder *json.Encoder, decoder *json.Decoder) {
 			return
 		}
 		defer foodRows.Close()
-<<<<<<< Updated upstream
 		err = rows.Scan(&food.ID, &food.Name, &food.Description, &food.Cost, &food.IsAvailable, &food.NutritionFacts)
 		if err != nil {
 			fmt.Println(err)
@@ -509,15 +508,6 @@ func GetCurrentUserCart(encoder *json.Encoder, decoder *json.Decoder) {
 			foodMutex.RUnlock()
 			encoder.Encode(&orderAndItemsWithFoodFail)
 			return
-=======
-		for foodRows.Next() {
-			var menuID int
-			err = foodRows.Scan(&food.ID, &menuID, &food.Name, &food.Description, &food.Cost, &food.IsAvailable, &food.NutritionFacts)
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
->>>>>>> Stashed changes
 		}
 		items = append(items, structs.OrderItemWithFood{Item: item, Food: food})
 	}
@@ -940,7 +930,6 @@ func GetPaymentBalances(encoder *json.Encoder, decoder *json.Decoder) {
 	}
 	defer rows.Close()
 
-
 	for rows.Next() {
 		err := rows.Scan(&res.CentsBalance, &res.MealSwipeBalance)
 		if err != nil {
@@ -988,7 +977,7 @@ func Login(encoder *json.Encoder, decoder *json.Decoder) {
 	personMutex.RUnlock()
 }
 
-func ProcessConnection(connection net.Conn){
+func ProcessConnection(connection net.Conn) {
 
 	encoder := json.NewEncoder(connection)
 	decoder := json.NewDecoder(connection)
