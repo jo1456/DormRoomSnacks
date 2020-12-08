@@ -733,37 +733,44 @@ func SelectOrder(encoder *json.Encoder, decoder *json.Decoder) {
 		}
 	}
 
-	rows, err = DB.Query("select * from OrderItem, Foods where OrderItem.orderID = ? and Foods.id = OrderItem.foodID;", req.OrderID)
-	if err != nil {
-		fmt.Println(err)
-		orderMutex.Unlock()
-		orderItemMutex.RUnlock()
-		foodMutex.RUnlock()
-		encoder.Encode(&orderAndItemsFail)
-		return
-	}
-	defer rows.Close()
-
 	var items []structs.OrderItemWithFood
 	for rows.Next() {
-		var itemWithFood structs.OrderItemWithFood
-		var orderID int
-		var menuID int
-		err := rows.Scan(&itemWithFood.Item.ID, &itemWithFood.Item.FoodID, &orderID,
-			&itemWithFood.Item.Customization, &itemWithFood.Item.PayWithSwipe, &itemWithFood.Food.ID,
-			&menuID, &itemWithFood.Food.Name, &itemWithFood.Food.Description,
-			&itemWithFood.Food.Cost, &itemWithFood.Food.IsAvailable, &itemWithFood.Food.NutritionFacts)
+		var item structs.OrderItem
+		var food structs.FoodItem
+		err := rows.Scan(&item.ID, &item.FoodID, &item.OrderID, &item.Customization, &item.PayWithSwipe)
 		if err != nil {
 			fmt.Println(err)
-			orderMutex.Unlock()
+			orderMutex.RUnlock()
 			orderItemMutex.RUnlock()
 			foodMutex.RUnlock()
 			encoder.Encode(&orderAndItemsFail)
 			return
 		}
-		items = append(items, itemWithFood)
-	}
 
+		foodRows, err := DB.Query("select * from Foods where id = ?;", item.FoodID)
+		if err != nil {
+			fmt.Println(err)
+			orderMutex.RUnlock()
+			orderItemMutex.RUnlock()
+			foodMutex.RUnlock()
+			encoder.Encode(&orderAndItemsFail)
+			return
+		}
+		defer foodRows.Close()
+		for foodRows.Next() {
+			var menuID int
+			err = rows.Scan(&food.ID, &menuID, &food.Name, &food.Description, &food.Cost, &food.IsAvailable, &food.NutritionFacts)
+			if err != nil {
+				fmt.Println(err)
+				orderMutex.RUnlock()
+				orderItemMutex.RUnlock()
+				foodMutex.RUnlock()
+				encoder.Encode(&orderAndItemsFail)
+				return
+			}
+		}
+		items = append(items, structs.OrderItemWithFood{Item: item, Food: food})
+	}
 	orderAndItems.Items = items
 
 	encoder.Encode(&orderAndItems)
